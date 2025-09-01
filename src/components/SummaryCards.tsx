@@ -10,8 +10,8 @@ interface SummaryCardsProps {
 
 type Totals = {
   value: number;
-  count: number;
-  qty: number;
+  count: number; // parts count
+  qty: number;   // total quantity
 };
 
 /** Safe number coercion */
@@ -73,14 +73,14 @@ export const SummaryCards = ({ bomItems }: SummaryCardsProps) => {
     const s = getStatus(item);
     statusTotals[s].value += num((item as any).Value);
     statusTotals[s].qty += num((item as any).Total_Qty);
-    statusTotals[s].count += 1;
+    statusTotals[s].count += 1; // parts count
   }
 
-  // ---- Quantities for "Current BoM" logic ----
-  const targetToTransferQty =
-    (statusTotals['Not Start']?.qty || 0) + (statusTotals['In Progress']?.qty || 0);
-  const notToTransferQty = statusTotals['Not to Transfer']?.qty || 0;
-  const currentBomQty = targetToTransferQty + notToTransferQty;
+  // ---- Parts counts for "Current BoM (parts)" ----
+  const targetToTransferParts =
+    (statusTotals['Not Start']?.count || 0) + (statusTotals['In Progress']?.count || 0);
+  const notToTransferParts = statusTotals['Not to Transfer']?.count || 0;
+  const currentBomParts = targetToTransferParts + notToTransferParts;
 
   // ---- Formatters ----
   const formatCurrency = (value: number) =>
@@ -107,16 +107,18 @@ export const SummaryCards = ({ bomItems }: SummaryCardsProps) => {
       className: 'text-purple-600',
       size: 'large' as const,
     },
-    // --- Current BoM (qty) = (Not Start + In Progress qty) + (Not to Transfer qty) ---
+    // --- Current BoM (parts) = Not Start (parts) + In Progress (parts) + Not to Transfer (parts) ---
     {
-      title: 'Current BoM (qty)',
-      value: formatInt(currentBomQty),
-      // Show explicit plus sign, and mark the "Not to Transfer" number in red
+      title: 'Current BoM (parts)',
+      value: formatInt(currentBomParts),
+      // Explicit plus sign: (Not Start + In Progress) + (Not to Transfer)
       subtitleJSX: (
         <span className="text-xs text-gray-600">
-          <span className="font-medium">{formatInt(targetToTransferQty)}</span>
+          <span className="font-medium">{formatInt(targetToTransferParts)} target to transfer</span>
           <span className="px-1"> + </span>
-          <span className="font-semibold text-red-600">{formatInt(notToTransferQty)} Not to Transfer</span>
+          <span className="font-semibold text-red-600">
+            {formatInt(notToTransferParts)} Not to Transfer
+          </span>
         </span>
       ),
       icon: Hash,
