@@ -4,8 +4,10 @@ import { SummaryCards } from '@/components/SummaryCards';
 import { FilterControls } from '@/components/FilterControls';
 import { BomTable } from '@/components/BomTable';
 import { SortField, SortDirection, KanbanFilter, StatusFilter } from '@/types/bom';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Download } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { exportBomItemsToExcel } from '@/lib/exportToExcel';
 
 export default function BomTransferPage() {
   const { bomItems, loading, error, updateStatus } = useBomData();
@@ -95,6 +97,11 @@ export default function BomTransferPage() {
     setSortDirection('desc');
   };
 
+  const handleExport = () => {
+    exportBomItemsToExcel(bomItems);
+  };
+
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -127,11 +134,22 @@ export default function BomTransferPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">BoM Transfer Management</h1>
-          <p className="mt-2 text-gray-600">
-            Manage BoM transfer status and monitor progress across all components.
-          </p>
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">BoM Transfer Management</h1>
+            <p className="mt-2 text-gray-600">
+              Manage BoM transfer status and monitor progress across all components.
+            </p>
+          </div>
+          <Button
+            type="button"
+            onClick={handleExport}
+            disabled={bomItems.length === 0}
+            className="w-full sm:w-auto"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Download Excel
+          </Button>
         </div>
 
         {/* Summary Cards */}
