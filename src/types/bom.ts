@@ -1,4 +1,4 @@
-export type TransferStatus = "Not Start" | "In Progress" | "Finished" | "Temporary Usage" | "Not to Transfer";
+export type TransferStatus = "Not Start" | "In Progress" | "Finished" | "Not to Transfer";
 
 export interface BomItem {
   Component_Material: string;
@@ -24,7 +24,6 @@ export interface BomSummary {
     "Not Start": number;
     "In Progress": number;
     "Finished": number;
-    "Temporary Usage": number;
     "Not to Transfer": number;
   };
 }
