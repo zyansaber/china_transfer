@@ -35,6 +35,9 @@ export const useBomData = () => {
                   Transfer_Status: item.Transfer_Status || 'Not Start',
                   Status_UpdatedAt: item.Status_UpdatedAt || '',
                   imageUrl: imageUrl || undefined,
+                  Expected_Completion: item.Expected_Completion || '',
+                  NotToTransferReason: item.NotToTransferReason || '',
+                  Brand: item.Brand || '',
                 };
               })
             );
@@ -74,11 +77,47 @@ export const useBomData = () => {
     }
   };
 
+  const updateExpectedCompletion = async (componentMaterial: string, dateISO: string | null): Promise<boolean> => {
+    try {
+      const updates = {
+        [`bom_summary/${componentMaterial}/Expected_Completion`]: dateISO || null,
+      };
+
+      await update(ref(database), updates);
+      return true;
+    } catch (err) {
+      console.error('Error updating expected completion:', err);
+      return false;
+    }
+  };
+
+  const updateNotToTransferDetails = async (
+    componentMaterial: string,
+    reason: string,
+    brand: string
+  ): Promise<boolean> => {
+    try {
+      const updates = {
+        [`bom_summary/${componentMaterial}/NotToTransferReason`]: reason,
+        [`bom_summary/${componentMaterial}/Brand`]: brand,
+      };
+
+      await update(ref(database), updates);
+      return true;
+    } catch (err) {
+      console.error('Error updating not-to-transfer details:', err);
+      return false;
+    }
+  };
+
+  
   return {
     bomItems,
     loading,
     error,
     updateStatus,
+    updateExpectedCompletion,
+    updateNotToTransferDetails,
   };
 };
 
