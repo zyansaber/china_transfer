@@ -138,14 +138,6 @@ export const SummaryCards = ({ bomItems }: SummaryCardsProps) => {
       size: 'small' as const,
     },
     {
-      title: 'Temporary Usage',
-      value: formatCurrency(statusTotals['Temporary Usage']?.value || 0),
-      subtitle: `${formatInt(statusTotals['Temporary Usage']?.count || 0)} parts • ${formatInt(statusTotals['Temporary Usage']?.qty || 0)} qty`,
-      icon: XCircle,
-      className: 'text-rose-600',
-      size: 'small' as const,
-    },
-    {
       title: 'Completed',
       value: formatCurrency(statusTotals['Finished']?.value || 0),
       subtitle: `${formatInt(statusTotals['Finished']?.count || 0)} parts • ${formatInt(statusTotals['Finished']?.qty || 0)} qty`,
