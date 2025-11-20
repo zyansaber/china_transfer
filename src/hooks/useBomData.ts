@@ -110,7 +110,6 @@ export const useBomData = () => {
     }
   };
 
-  
   return {
     bomItems,
     loading,
