@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { TransferStatus } from '@/types/bom';
-import { CheckCircle, Clock, XCircle, AlertTriangle, Ban } from 'lucide-react';
+import { CheckCircle, Clock, XCircle, Ban } from 'lucide-react';
 
 interface StatusButtonProps {
   currentStatus: TransferStatus;
@@ -31,12 +31,6 @@ export const StatusButton = ({ currentStatus, onStatusChange }: StatusButtonProp
           variant: 'default' as const,
           className: 'text-white bg-green-600 hover:bg-green-700 border-green-600',
         };
-      case 'Temporary Usage':
-        return {
-          icon: AlertTriangle,
-          variant: 'outline' as const,
-          className: 'text-yellow-600 border-yellow-300 hover:bg-yellow-50',
-        };
       case 'Not to Transfer':
         return {
           icon: Ban,
@@ -60,7 +54,7 @@ export const StatusButton = ({ currentStatus, onStatusChange }: StatusButtonProp
     setIsUpdating(false);
   };
 
-  const statuses: TransferStatus[] = ['Not Start', 'In Progress', 'Finished', 'Temporary Usage', 'Not to Transfer'];
+  const statuses: TransferStatus[] = ['Not Start', 'In Progress', 'Finished', 'Not to Transfer'];
 
   return (
     <div className="flex gap-1">
