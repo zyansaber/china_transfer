@@ -62,7 +62,6 @@ export const FilterControls = ({
             <SelectItem value="Not Start">Not Start</SelectItem>
             <SelectItem value="In Progress">In Progress</SelectItem>
             <SelectItem value="Finished">Finished</SelectItem>
-            <SelectItem value="Temporary Usage">Temporary Usage</SelectItem>
             <SelectItem value="Not to Transfer">Not to Transfer</SelectItem>
           </SelectContent>
         </Select>
