@@ -1,7 +1,6 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BomItem } from '@/types/bom';
-import { DollarSign, Package, Clock, CheckCircle, XCircle, AlertTriangle, Hash, Ban } from 'lucide-react';
+import { DollarSign, Package, Clock, CheckCircle, AlertTriangle, Hash, Ban } from 'lucide-react';
 
 /** Named + default export to avoid import mismatch */
 interface SummaryCardsProps {
@@ -26,14 +25,12 @@ type TransferStatus =
   | 'Not Start'
   | 'In Progress'
   | 'Finished'
-  | 'Temporary Usage'
   | 'Not to Transfer';
 
 const STATUSES: TransferStatus[] = [
   'Not Start',
   'In Progress',
   'Finished',
-  'Temporary Usage',
   'Not to Transfer',
 ];
 
@@ -60,7 +57,6 @@ export const SummaryCards = ({ bomItems }: SummaryCardsProps) => {
     if (norm === 'not started') return 'Not Start';
     if (norm === 'in progress') return 'In Progress';
     if (norm === 'finished' || norm === 'completed') return 'Finished';
-    if (norm === 'temporary usage' || norm === 'temporary') return 'Temporary Usage';
     if (norm === 'not to transfer' || norm === 'not-transfer' || norm === 'no transfer') return 'Not to Transfer';
     return 'Not Start';
   };
