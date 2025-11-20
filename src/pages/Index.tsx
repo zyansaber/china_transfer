@@ -386,7 +386,10 @@ export default function ProfessionalDashboard() {
               {completedItems.map((item) => {
                 const lastBuy = parseDate(item.Latest_Component_Date);
                 return (
-                  <div key={item.Component_Material} className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+                  <div
+                    key={item.Component_Material}
+                    className="grid gap-4 p-4 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] md:items-center"
+                  >
                     <div className="flex items-start gap-3">
                       <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
                         {item.imageUrl ? (
@@ -395,7 +398,7 @@ export default function ProfessionalDashboard() {
                           <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">No image</div>
                         )}
                       </div>
-                      <div>
+                      <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <p className="font-semibold text-slate-900">{item.Component_Material}</p>
                           <Badge className="bg-emerald-50 text-emerald-700">Finished</Badge>
@@ -403,10 +406,12 @@ export default function ProfessionalDashboard() {
                         <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
                       </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-6 text-sm text-slate-600">
-                      <span className="font-semibold text-slate-900">{formatCurrency(item.Value || 0)}</span>
-                      <span>{lastBuy ? format(lastBuy, 'MMM yyyy') : 'N/A'}</span>
-                      <span className="text-xs text-slate-500">Updated {item.Status_UpdatedAt ? format(parseDate(item.Status_UpdatedAt) || new Date(), 'PP') : '—'}</span>
+                    <div className="grid gap-2 text-sm text-slate-600 md:grid-cols-3 md:items-center md:justify-items-end">
+                      <span className="font-semibold text-slate-900 md:text-right">{formatCurrency(item.Value || 0)}</span>
+                      <span className="md:text-right">{lastBuy ? format(lastBuy, 'MMM yyyy') : 'N/A'}</span>
+                      <span className="text-xs text-slate-500 md:text-right">
+                        Updated {item.Status_UpdatedAt ? format(parseDate(item.Status_UpdatedAt) || new Date(), 'PP') : '—'}
+                      </span>
                     </div>
                   </div>
                 );
@@ -514,7 +519,10 @@ export default function ProfessionalDashboard() {
                 const expected = parseDate(item.Expected_Completion);
                 const isDelayed = expected ? isBefore(expected, new Date()) : false;
                 return (
-                  <div key={item.Component_Material} className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div
+                    key={item.Component_Material}
+                    className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1.2fr)] lg:items-start"
+                  >
                     <div className="flex items-start gap-3">
                       <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
                         {item.imageUrl ? (
@@ -523,7 +531,7 @@ export default function ProfessionalDashboard() {
                           <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">No image</div>
                         )}
                       </div>
-                      <div>
+                      <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <p className="font-semibold text-slate-900">{item.Component_Material}</p>
                           <Badge variant="outline" className={isDelayed ? 'border-amber-300 text-amber-700' : ''}>
@@ -533,12 +541,12 @@ export default function ProfessionalDashboard() {
                         <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
                       </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
-                      <div className="flex flex-col text-xs text-slate-500">
+                    <div className="grid gap-3 text-sm text-slate-600 md:grid-cols-4 md:items-center md:justify-items-end">
+                      <div className="flex flex-col text-xs text-slate-500 md:items-end">
                         <span className="uppercase tracking-wide">Value</span>
                         <span className="text-base font-semibold text-slate-900">{formatCurrency(item.Value || 0)}</span>
                       </div>
-                      <div className="w-56">
+                      <div className="md:col-span-2 md:w-full">
                         <Label className="text-xs text-slate-500">Expected completion</Label>
                         <DateSelector
                           value={item.Expected_Completion}
@@ -548,11 +556,13 @@ export default function ProfessionalDashboard() {
                         />
                         {isDelayed && <p className="mt-1 text-xs text-amber-600">Past due</p>}
                       </div>
-                      <div className="text-xs text-slate-500">Latest buy: {item.Latest_Component_Date || 'N/A'}</div>
-                      <StatusButton
-                        currentStatus={(item.Transfer_Status || 'Not Start') as TransferStatus}
-                        onStatusChange={(status) => updateStatus(item.Component_Material, status)}
-                      />
+                      <div className="flex flex-col items-start gap-2 md:items-end">
+                        <span className="text-xs text-slate-500">Latest buy: {item.Latest_Component_Date || 'N/A'}</span>
+                        <StatusButton
+                          currentStatus={(item.Transfer_Status || 'Not Start') as TransferStatus}
+                          onStatusChange={(status) => updateStatus(item.Component_Material, status)}
+                        />
+                      </div>
                     </div>
                   </div>
                 );
@@ -625,7 +635,10 @@ export default function ProfessionalDashboard() {
           <div className="rounded-xl border border-slate-200 overflow-hidden">
             <div className="divide-y divide-slate-200">
               {currentBomItems.map((item) => (
-                <div key={item.Component_Material} className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
+                <div
+                  key={item.Component_Material}
+                  className="grid gap-4 p-4 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] md:items-center"
+                >
                   <div className="flex items-start gap-3">
                     <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
                       {item.imageUrl ? (
@@ -634,7 +647,7 @@ export default function ProfessionalDashboard() {
                         <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">No image</div>
                       )}
                     </div>
-                    <div>
+                    <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <p className="font-semibold text-slate-900">{item.Component_Material}</p>
                         <Badge variant="outline" className="text-xs">Not Start</Badge>
@@ -642,9 +655,9 @@ export default function ProfessionalDashboard() {
                       <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
                     </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
-                    <span className="font-semibold text-slate-900">{formatCurrency(item.Value || 0)}</span>
-                    <span className="text-xs text-slate-500">Kanban: {item.Kanban_Flag || '-'}</span>
+                  <div className="grid gap-2 text-sm text-slate-600 md:grid-cols-3 md:items-center md:justify-items-end">
+                    <span className="font-semibold text-slate-900 md:text-right">{formatCurrency(item.Value || 0)}</span>
+                    <span className="text-xs text-slate-500 md:text-right">Kanban: {item.Kanban_Flag || '-'}</span>
                     <StatusButton
                       currentStatus={(item.Transfer_Status || 'Not Start') as TransferStatus}
                       onStatusChange={(status) => updateStatus(item.Component_Material, status)}
@@ -679,7 +692,10 @@ export default function ProfessionalDashboard() {
           <div className="rounded-xl border border-slate-200 overflow-hidden">
             <div className="divide-y divide-slate-200">
               {remainingItems.map((item) => (
-                <div key={item.Component_Material} className="flex flex-col gap-3 p-4 lg:flex-row lg:items-start lg:justify-between">
+                <div
+                  key={item.Component_Material}
+                  className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1.1fr)] lg:items-start"
+                >
                   <div className="flex items-start gap-3">
                     <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
                       {item.imageUrl ? (
@@ -688,7 +704,7 @@ export default function ProfessionalDashboard() {
                         <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">No image</div>
                       )}
                     </div>
-                    <div>
+                    <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <p className="font-semibold text-slate-900">{item.Component_Material}</p>
                         <Badge variant="outline" className="text-xs">Not to Transfer</Badge>
