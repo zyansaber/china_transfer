@@ -11,6 +11,9 @@ export interface BomItem {
   Transfer_Status?: TransferStatus;
   Status_UpdatedAt?: string;
   imageUrl?: string; // Added for component images
+  Expected_Completion?: string;
+  NotToTransferReason?: string;
+  Brand?: string;
 }
 
 export interface BomSummary {
