@@ -40,12 +40,28 @@ import { cn } from '@/lib/utils';
 import { StatusButton } from '@/components/StatusButton';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('en-US', {
+const formatCurrency = (value: number) => {
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) {
+    return `${value < 0 ? '-' : ''}$${(abs / 1_000_000).toFixed(1)}M`;
+  }
+  if (abs >= 1_000) {
+    return `${value < 0 ? '-' : ''}$${(abs / 1_000).toFixed(1)}K`;
+  }
+  return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   }).format(value);
+};
+
+const formatCompactNumber = (value: number) => {
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) return `${value < 0 ? '-' : ''}${(abs / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `${value < 0 ? '-' : ''}${(abs / 1_000).toFixed(1)}K`;
+  return `${value}`;
+};
 
 const parseDate = (value?: string) => {
   if (!value) return null;
@@ -58,16 +74,14 @@ type TabKey =
   | 'plan'
   | 'current'
   | 'remaining'
-  | 'notToTransfer'
   | 'report';
 
 const sidebarNav: { key: TabKey; label: string; description: string; icon: typeof Activity }[] = [
-  { key: 'completed', label: '已完成', description: '完成统计与价值', icon: BadgeCheck },
-  { key: 'plan', label: 'Plan (In Progress)', description: '预计完成计划', icon: NotebookPen },
-  { key: 'current', label: 'Current BoM (parts)', description: '当前库存走势', icon: Layers },
-  { key: 'remaining', label: 'Remaining in AU', description: '未转移库存', icon: Factory },
-  { key: 'notToTransfer', label: 'Not to Transfer', description: '保留原因与品牌', icon: Flag },
-  { key: 'report', label: 'Report', description: '生成阶段报告', icon: FilePieChart },
+  { key: 'completed', label: 'Completed', description: 'Volume, value, and timing', icon: BadgeCheck },
+  { key: 'plan', label: 'Plan (In Progress)', description: 'Forecast finish and value', icon: NotebookPen },
+  { key: 'current', label: 'Current BoM', description: 'Not Start items only', icon: Layers },
+  { key: 'remaining', label: 'Remaining in AU', description: 'Not to Transfer with notes', icon: Flag },
+  { key: 'report', label: 'Report', description: 'Generate portfolio snapshot', icon: FilePieChart },
 ];
 
 const SectionHeader = ({ title, description, icon: Icon }: { title: string; description: string; icon: typeof Activity }) => (
@@ -102,7 +116,7 @@ const DateSelector = ({
           )}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {parsed ? format(parsed, 'PP') : '选择日期'}
+          {parsed ? format(parsed, 'PP') : 'Select date'}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="p-0" align="start">
@@ -134,25 +148,16 @@ export default function ProfessionalDashboard() {
   );
 
   const planItems = useMemo(
-    () =>
-      bomItems.filter((item) => {
-        const status = (item.Transfer_Status || 'Not Start') as TransferStatus;
-        return status === 'In Progress' || status === 'Not Start';
-      }),
+    () => bomItems.filter((item) => (item.Transfer_Status || 'Not Start') === 'In Progress'),
     [bomItems]
   );
 
   const currentBomItems = useMemo(
-    () => bomItems.filter((item) => (item.Transfer_Status || 'Not Start') !== 'Not to Transfer'),
-    [bomItems]
-  );
-
-  const remainingItems = useMemo(
     () => bomItems.filter((item) => (item.Transfer_Status || 'Not Start') === 'Not Start'),
     [bomItems]
   );
 
-  const notToTransferItems = useMemo(
+  const remainingItems = useMemo(
     () => bomItems.filter((item) => (item.Transfer_Status || 'Not Start') === 'Not to Transfer'),
     [bomItems]
   );
@@ -292,84 +297,76 @@ export default function ProfessionalDashboard() {
   const renderCompleted = () => (
     <div className="space-y-6">
       <SectionHeader
-        title="已完成"
-        description="完成数量、价值与最后国内采购月份走势"
+        title="Completed"
+        description="Dual-axis distribution by latest domestic purchase date"
         icon={BadgeCheck}
       />
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Card className={professionalPalette.surface}>
-          <CardHeader>
-            <CardTitle className="text-sm text-slate-500">2025 完成数量</CardTitle>
-            <CardDescription className="text-3xl font-semibold text-slate-900">
-              {completed2025.length} parts
-            </CardDescription>
-          </CardHeader>
-        </Card>
-        <Card className={professionalPalette.surface}>
-          <CardHeader>
-            <CardTitle className="text-sm text-slate-500">2025 价值节省</CardTitle>
-            <CardDescription className="text-3xl font-semibold text-emerald-600">
-              {formatCurrency(
-                completed2025.reduce((sum, item) => sum + (item.Value || 0), 0)
-              )}
-            </CardDescription>
-          </CardHeader>
-        </Card>
-        <Card className={professionalPalette.surface}>
-          <CardHeader>
-            <CardTitle className="text-sm text-slate-500">总完成率</CardTitle>
-            <CardDescription className="text-3xl font-semibold text-indigo-600">
+
+      <Card className={professionalPalette.surface}>
+        <CardContent className="grid gap-4 md:grid-cols-3 md:divide-x divide-slate-200 p-6">
+          <div className="flex flex-col gap-1">
+            <span className="text-xs uppercase tracking-wide text-slate-500">2025 parts closed</span>
+            <span className="text-3xl font-semibold text-slate-900">{completed2025.length}</span>
+          </div>
+          <div className="flex flex-col gap-1 px-0 md:px-6">
+            <span className="text-xs uppercase tracking-wide text-slate-500">2025 value saved</span>
+            <span className="text-3xl font-semibold text-emerald-600">
+              {formatCurrency(completed2025.reduce((sum, item) => sum + (item.Value || 0), 0))}
+            </span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs uppercase tracking-wide text-slate-500">Completion rate</span>
+            <span className="text-3xl font-semibold text-indigo-600">
               {Math.round((summary.completedParts / Math.max(summary.totalParts, 1)) * 100)}%
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
+            </span>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className={professionalPalette.surface}>
         <CardHeader className="flex items-center justify-between">
           <div>
-            <CardTitle>完成分布 (基于最新国内采购日期)</CardTitle>
-            <CardDescription>数量与价值分别使用独立坐标系</CardDescription>
+            <CardTitle>Completion distribution</CardTitle>
+            <CardDescription>Volume and value on independent axes (latest domestic buy date)</CardDescription>
           </div>
-          <Badge variant="outline" className="text-xs">
-            2025
-          </Badge>
+          <Badge variant="outline" className="text-xs">2025</Badge>
         </CardHeader>
         <CardContent>
           <div className="h-80">
             <ChartContainer
               config={{
-                count: { label: '数量', color: 'hsl(215, 85%, 55%)' },
-                value: { label: '价值', color: 'hsl(158, 70%, 45%)' },
+                count: { label: 'Parts', color: 'hsl(215, 85%, 55%)' },
+                value: { label: 'Value', color: 'hsl(158, 70%, 45%)' },
               }}
             >
               <ResponsiveContainer>
                 <ComposedChart data={completedChart}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" />
-                  <YAxis yAxisId="left" label={{ value: '数量', angle: -90, position: 'insideLeft' }} />
+                  <YAxis yAxisId="left" tickFormatter={formatCompactNumber} label={{ value: 'Parts', angle: -90, position: 'insideLeft' }} />
                   <YAxis
                     yAxisId="right"
                     orientation="right"
-                    label={{ value: '总价值', angle: 90, position: 'insideRight' }}
+                    tickFormatter={formatCompactNumber}
+                    label={{ value: 'Total Value', angle: 90, position: 'insideRight' }}
                   />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <Legend />
                   <Bar
                     yAxisId="left"
                     dataKey="count"
-                    name="数量"
-                    barSize={28}
+                    name="Parts"
+                    barSize={26}
                     fill="var(--color-count)"
-                    radius={[6, 6, 0, 0]}
+                    radius={[8, 8, 0, 0]}
                   />
                   <Bar
                     yAxisId="right"
                     dataKey="value"
-                    name="总价值"
-                    barSize={28}
+                    name="Value"
+                    barSize={26}
                     fill="var(--color-value)"
-                    radius={[6, 6, 0, 0]}
+                    radius={[8, 8, 0, 0]}
                   />
                 </ComposedChart>
               </ResponsiveContainer>
@@ -380,37 +377,44 @@ export default function ProfessionalDashboard() {
 
       <Card className={professionalPalette.surface}>
         <CardHeader>
-          <CardTitle>已完成清单</CardTitle>
-          <CardDescription>透明展示每个完成件的价值与采购月份</CardDescription>
+          <CardTitle>Completed parts</CardTitle>
+          <CardDescription>Latest domestic purchase month, value, and imagery</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {completedItems.map((item) => {
-              const lastBuy = parseDate(item.Latest_Component_Date);
-              return (
-                <div
-                  key={item.Component_Material}
-                  className="rounded-lg border border-slate-200 bg-slate-50 p-4"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="font-semibold text-slate-900">
-                      {item.Component_Material}
+          <div className="rounded-xl border border-slate-200 overflow-hidden">
+            <div className="divide-y divide-slate-200">
+              {completedItems.map((item) => {
+                const lastBuy = parseDate(item.Latest_Component_Date);
+                return (
+                  <div key={item.Component_Material} className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+                    <div className="flex items-start gap-3">
+                      <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
+                        {item.imageUrl ? (
+                          <img src={item.imageUrl} alt={item.Component_Material} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">No image</div>
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-slate-900">{item.Component_Material}</p>
+                          <Badge className="bg-emerald-50 text-emerald-700">Finished</Badge>
+                        </div>
+                        <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
+                      </div>
                     </div>
-                    <Badge className="bg-emerald-100 text-emerald-700">Finished</Badge>
+                    <div className="flex flex-wrap items-center gap-6 text-sm text-slate-600">
+                      <span className="font-semibold text-slate-900">{formatCurrency(item.Value || 0)}</span>
+                      <span>{lastBuy ? format(lastBuy, 'MMM yyyy') : 'N/A'}</span>
+                      <span className="text-xs text-slate-500">Updated {item.Status_UpdatedAt ? format(parseDate(item.Status_UpdatedAt) || new Date(), 'PP') : '—'}</span>
+                    </div>
                   </div>
-                  <p className="text-sm text-slate-600 line-clamp-2">
-                    {item.Description_EN}
-                  </p>
-                  <div className="mt-2 flex items-center justify-between text-sm text-slate-500">
-                    <span>{formatCurrency(item.Value || 0)}</span>
-                    <span>{lastBuy ? format(lastBuy, 'MMM yyyy') : 'N/A'}</span>
-                  </div>
-                </div>
-              );
-            })}
-            {completedItems.length === 0 && (
-              <div className="text-sm text-slate-500">暂无完成记录。</div>
-            )}
+                );
+              })}
+              {completedItems.length === 0 && (
+                <div className="p-4 text-sm text-slate-500">No completed records yet.</div>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -421,80 +425,72 @@ export default function ProfessionalDashboard() {
     <div className="space-y-6">
       <SectionHeader
         title="Plan (In Progress)"
-        description="登记预计完成时间，预测月度完成数量与价值"
+        description="Register expected completion dates, track value and slippage"
         icon={NotebookPen}
       />
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Card className={professionalPalette.surface}>
-          <CardHeader>
-            <CardTitle className="text-sm text-slate-500">在制 + 待启动</CardTitle>
-            <CardDescription className="text-3xl font-semibold text-slate-900">
-              {planItems.length} parts
-            </CardDescription>
-          </CardHeader>
-        </Card>
-        <Card className={professionalPalette.surface}>
-          <CardHeader>
-            <CardTitle className="text-sm text-slate-500">已登记预计完成</CardTitle>
-            <CardDescription className="text-3xl font-semibold text-indigo-600">
+      <Card className={professionalPalette.surface}>
+        <CardContent className="grid gap-4 md:grid-cols-3 md:divide-x divide-slate-200 p-6">
+          <div className="flex flex-col gap-1">
+            <span className="text-xs uppercase tracking-wide text-slate-500">In progress</span>
+            <span className="text-3xl font-semibold text-slate-900">{planItems.length} parts</span>
+          </div>
+          <div className="flex flex-col gap-1 px-0 md:px-6">
+            <span className="text-xs uppercase tracking-wide text-slate-500">Forecasted parts</span>
+            <span className="text-3xl font-semibold text-indigo-600">
               {planForecast.reduce((sum, item) => sum + item.parts, 0)} parts
-            </CardDescription>
-          </CardHeader>
-        </Card>
-        <Card className={professionalPalette.surface}>
-          <CardHeader>
-            <CardTitle className="text-sm text-slate-500">延后项</CardTitle>
-            <CardDescription className="text-3xl font-semibold text-amber-600">
-              {delayedCount} parts
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
+            </span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs uppercase tracking-wide text-slate-500">Past due</span>
+            <span className="text-3xl font-semibold text-amber-600">{delayedCount} parts</span>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className={professionalPalette.surface}>
         <CardHeader>
-          <CardTitle>月度完成趋势 (预测)</CardTitle>
-          <CardDescription>叠加价值与预计完成数量，识别延误</CardDescription>
+          <CardTitle>Monthly forecast</CardTitle>
+          <CardDescription>Stacked volume with value trendline; delayed parts flagged</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="h-80">
             <ChartContainer
               config={{
-                parts: { label: '预计完成数量', color: 'hsl(215, 80%, 55%)' },
-                value: { label: '预计价值', color: 'hsl(221, 39%, 11%)' },
-                delayed: { label: '延后数量', color: 'hsl(34, 94%, 50%)' },
+                parts: { label: 'Forecasted parts', color: 'hsl(215, 80%, 55%)' },
+                value: { label: 'Forecasted value', color: 'hsl(221, 39%, 11%)' },
+                delayed: { label: 'Past due', color: 'hsl(34, 94%, 50%)' },
               }}
             >
               <ResponsiveContainer>
                 <ComposedChart data={planForecast}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" />
-                  <YAxis yAxisId="left" />
-                  <YAxis yAxisId="right" orientation="right" />
+                  <YAxis yAxisId="left" tickFormatter={formatCompactNumber} />
+                  <YAxis yAxisId="right" orientation="right" tickFormatter={formatCompactNumber} />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <Legend />
                   <Bar
                     yAxisId="left"
                     dataKey="parts"
-                    name="数量"
+                    name="Parts"
                     stackId="a"
                     fill="var(--color-parts)"
-                    radius={[6, 6, 0, 0]}
+                    radius={[8, 8, 0, 0]}
                   />
                   <Bar
                     yAxisId="left"
                     dataKey="delayedParts"
-                    name="延后"
+                    name="Past due"
                     stackId="a"
                     fill="var(--color-delayed)"
-                    radius={[6, 6, 0, 0]}
+                    radius={[8, 8, 0, 0]}
                   />
                   <Line
                     type="monotone"
                     yAxisId="right"
                     dataKey="value"
-                    name="价值"
+                    name="Value"
                     stroke="var(--color-value)"
                     strokeWidth={3}
                     dot={{ r: 3 }}
@@ -508,52 +504,63 @@ export default function ProfessionalDashboard() {
 
       <Card className={professionalPalette.surface}>
         <CardHeader>
-          <CardTitle>计划明细</CardTitle>
-          <CardDescription>登记预计完成日期，自动同步 Firebase</CardDescription>
+          <CardTitle>Planned detail</CardTitle>
+          <CardDescription>Expected completion dates saved to Firebase</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {planItems.map((item) => {
-              const expected = parseDate(item.Expected_Completion);
-              const isDelayed = expected ? isBefore(expected, new Date()) : false;
-              return (
-                <div key={item.Component_Material} className="rounded-lg border border-slate-200 p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold text-slate-900">
-                      {item.Component_Material}
+          <div className="rounded-xl border border-slate-200 overflow-hidden">
+            <div className="divide-y divide-slate-200">
+              {planItems.map((item) => {
+                const expected = parseDate(item.Expected_Completion);
+                const isDelayed = expected ? isBefore(expected, new Date()) : false;
+                return (
+                  <div key={item.Component_Material} className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex items-start gap-3">
+                      <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
+                        {item.imageUrl ? (
+                          <img src={item.imageUrl} alt={item.Component_Material} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">No image</div>
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-slate-900">{item.Component_Material}</p>
+                          <Badge variant="outline" className={isDelayed ? 'border-amber-300 text-amber-700' : ''}>
+                            In Progress
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
+                      </div>
                     </div>
-                    <Badge variant="outline" className="text-xs">
-                      {item.Transfer_Status || 'Not Start'}
-                    </Badge>
+                    <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
+                      <div className="flex flex-col text-xs text-slate-500">
+                        <span className="uppercase tracking-wide">Value</span>
+                        <span className="text-base font-semibold text-slate-900">{formatCurrency(item.Value || 0)}</span>
+                      </div>
+                      <div className="w-56">
+                        <Label className="text-xs text-slate-500">Expected completion</Label>
+                        <DateSelector
+                          value={item.Expected_Completion}
+                          onChange={async (newDate) => {
+                            await updateExpectedCompletion(item.Component_Material, newDate);
+                          }}
+                        />
+                        {isDelayed && <p className="mt-1 text-xs text-amber-600">Past due</p>}
+                      </div>
+                      <div className="text-xs text-slate-500">Latest buy: {item.Latest_Component_Date || 'N/A'}</div>
+                      <StatusButton
+                        currentStatus={(item.Transfer_Status || 'Not Start') as TransferStatus}
+                        onStatusChange={(status) => updateStatus(item.Component_Material, status)}
+                      />
+                    </div>
                   </div>
-                  <p className="mt-1 text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
-                  <div className="mt-3">
-                    <Label className="text-xs text-slate-500">预计完成日期</Label>
-                    <DateSelector
-                      value={item.Expected_Completion}
-                      onChange={async (date) => {
-                        await updateExpectedCompletion(item.Component_Material, date);
-                      }}
-                    />
-                    {isDelayed && (
-                      <p className="mt-1 text-xs text-amber-600 flex items-center gap-1">
-                        <Lightbulb className="h-3 w-3" /> 已延后
-                      </p>
-                    )}
-                  </div>
-                  <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
-                    <span>价值 {formatCurrency(item.Value || 0)}</span>
-                    <StatusButton
-                      currentStatus={item.Transfer_Status || 'Not Start'}
-                      onStatusChange={(status) => updateStatus(item.Component_Material, status)}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-            {planItems.length === 0 && (
-              <p className="text-sm text-slate-500">暂无计划项。</p>
-            )}
+                );
+              })}
+              {planItems.length === 0 && (
+                <div className="p-4 text-sm text-slate-500">No items are in progress.</div>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -563,42 +570,42 @@ export default function ProfessionalDashboard() {
   const renderCurrent = () => (
     <div className="space-y-6">
       <SectionHeader
-        title="Current BoM (parts)"
-        description="不含 Not to Transfer，展示库存下降趋势"
+        title="Current BoM"
+        description="Only Not Start parts; trajectory toward zero"
         icon={Layers}
       />
 
       <Card className={professionalPalette.surface}>
         <CardHeader>
-          <CardTitle>月度减少趋势</CardTitle>
-          <CardDescription>基于计划完成数，预估当前 BoM 的下降曲线</CardDescription>
+          <CardTitle>Monthly reduction</CardTitle>
+          <CardDescription>Projected drawdown based on expected completions</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="h-72">
             <ChartContainer
               config={{
-                remaining: { label: '剩余件数', color: 'hsl(215, 80%, 50%)' },
-                completed: { label: '当月完成', color: 'hsl(142, 71%, 45%)' },
+                remaining: { label: 'Remaining', color: 'hsl(215, 80%, 50%)' },
+                completed: { label: 'Completed this month', color: 'hsl(142, 71%, 45%)' },
               }}
             >
               <ResponsiveContainer>
                 <ComposedChart data={currentReduction}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" />
-                  <YAxis />
+                  <YAxis tickFormatter={formatCompactNumber} />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <Legend />
                   <Line
                     type="monotone"
                     dataKey="remaining"
-                    name="剩余件数"
+                    name="Remaining"
                     stroke="var(--color-remaining)"
                     strokeWidth={3}
                     dot={{ r: 3 }}
                   />
                   <Bar
                     dataKey="completed"
-                    name="当月完成"
+                    name="Completed"
                     fill="var(--color-completed)"
                     radius={[6, 6, 0, 0]}
                   />
@@ -611,26 +618,44 @@ export default function ProfessionalDashboard() {
 
       <Card className={professionalPalette.surface}>
         <CardHeader>
-          <CardTitle>当前 BoM 清单</CardTitle>
-          <CardDescription>侧重正在转移或未开始的件，排除 Not to Transfer</CardDescription>
+          <CardTitle>Current BoM detail</CardTitle>
+          <CardDescription>Not Start parts only, with imagery and value</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {currentBomItems.map((item) => (
-              <div key={item.Component_Material} className="rounded-lg border border-slate-200 p-4">
-                <div className="flex items-center justify-between">
-                  <div className="font-semibold text-slate-900">{item.Component_Material}</div>
-                  <Badge variant="outline" className="text-xs">
-                    {item.Transfer_Status || 'Not Start'}
-                  </Badge>
+          <div className="rounded-xl border border-slate-200 overflow-hidden">
+            <div className="divide-y divide-slate-200">
+              {currentBomItems.map((item) => (
+                <div key={item.Component_Material} className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex items-start gap-3">
+                    <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
+                      {item.imageUrl ? (
+                        <img src={item.imageUrl} alt={item.Component_Material} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">No image</div>
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-slate-900">{item.Component_Material}</p>
+                        <Badge variant="outline" className="text-xs">Not Start</Badge>
+                      </div>
+                      <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
+                    <span className="font-semibold text-slate-900">{formatCurrency(item.Value || 0)}</span>
+                    <span className="text-xs text-slate-500">Kanban: {item.Kanban_Flag || '-'}</span>
+                    <StatusButton
+                      currentStatus={(item.Transfer_Status || 'Not Start') as TransferStatus}
+                      onStatusChange={(status) => updateStatus(item.Component_Material, status)}
+                    />
+                  </div>
                 </div>
-                <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
-                <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
-                  <span>Kanban: {item.Kanban_Flag || '-'}</span>
-                  <span>价值 {formatCurrency(item.Value || 0)}</span>
-                </div>
-              </div>
-            ))}
+              ))}
+              {currentBomItems.length === 0 && (
+                <div className="p-4 text-sm text-slate-500">All parts have moved beyond Not Start.</div>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -641,105 +666,85 @@ export default function ProfessionalDashboard() {
     <div className="space-y-6">
       <SectionHeader
         title="Remaining in AU"
-        description="突出仍在澳洲的库存，便于拉通行动"
+        description="Not to Transfer items held in AU with reason and brand"
         icon={Factory}
       />
-      <Card className={professionalPalette.surface}>
-        <CardHeader>
-          <CardTitle>未启动件</CardTitle>
-          <CardDescription>默认依据 Not Start 状态识别</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {remainingItems.map((item) => (
-              <div key={item.Component_Material} className="rounded-lg border border-slate-200 p-4">
-                <div className="flex items-center justify-between">
-                  <div className="font-semibold text-slate-900">{item.Component_Material}</div>
-                  <Badge variant="outline" className="text-xs">AU Remaining</Badge>
-                </div>
-                <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
-                <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
-                  <span>价值 {formatCurrency(item.Value || 0)}</span>
-                  <StatusButton
-                    currentStatus={item.Transfer_Status || 'Not Start'}
-                    onStatusChange={(status) => updateStatus(item.Component_Material, status)}
-                  />
-                </div>
-              </div>
-            ))}
-            {remainingItems.length === 0 && (
-              <p className="text-sm text-slate-500">暂无未启动件。</p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-
-  const renderNotToTransfer = () => (
-    <div className="space-y-6">
-      <SectionHeader
-        title="Not to Transfer"
-        description="为每个保留件补充品牌与原因，确保清晰决策轨迹"
-        icon={Flag}
-      />
 
       <Card className={professionalPalette.surface}>
         <CardHeader>
-          <CardTitle>保留件详情</CardTitle>
-          <CardDescription>填写 reason 与 brand，实时写入 Firebase</CardDescription>
+          <CardTitle>Hold detail</CardTitle>
+          <CardDescription>Capture reason and brand for each Not to Transfer item</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {notToTransferItems.map((item) => (
-              <div key={item.Component_Material} className="rounded-lg border border-slate-200 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="font-semibold text-slate-900">{item.Component_Material}</div>
-                  <Badge variant="outline" className="text-xs">Not to Transfer</Badge>
-                </div>
-                <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
-                <div className="space-y-2">
-                  <div className="space-y-1">
-                    <Label className="text-xs text-slate-500">Reason</Label>
-                    <Input
-                      defaultValue={item.NotToTransferReason}
-                      placeholder="e.g. Localized sourcing"
-                      onBlur={async (e) => {
-                        await updateNotToTransferDetails(
-                          item.Component_Material,
-                          e.target.value,
-                          item.Brand || ''
-                        );
-                      }}
-                    />
+          <div className="rounded-xl border border-slate-200 overflow-hidden">
+            <div className="divide-y divide-slate-200">
+              {remainingItems.map((item) => (
+                <div key={item.Component_Material} className="flex flex-col gap-3 p-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="flex items-start gap-3">
+                    <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
+                      {item.imageUrl ? (
+                        <img src={item.imageUrl} alt={item.Component_Material} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">No image</div>
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-slate-900">{item.Component_Material}</p>
+                        <Badge variant="outline" className="text-xs">Not to Transfer</Badge>
+                      </div>
+                      <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
+                        <span>Value {formatCurrency(item.Value || 0)}</span>
+                        <span>Kanban: {item.Kanban_Flag || '-'}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-slate-500">Brand</Label>
-                    <Input
-                      defaultValue={item.Brand}
-                      placeholder="Brand"
-                      onBlur={async (e) => {
-                        await updateNotToTransferDetails(
-                          item.Component_Material,
-                          item.NotToTransferReason || '',
-                          e.target.value
-                        );
-                      }}
-                    />
+                  <div className="flex flex-1 flex-col gap-3 lg:max-w-xl">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-slate-500">Reason</Label>
+                        <Input
+                          defaultValue={item.NotToTransferReason}
+                          placeholder="Why held in AU"
+                          onBlur={async (e) => {
+                            await updateNotToTransferDetails(
+                              item.Component_Material,
+                              e.target.value,
+                              item.Brand || ''
+                            );
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-slate-500">Brand</Label>
+                        <Input
+                          defaultValue={item.Brand}
+                          placeholder="Brand"
+                          onBlur={async (e) => {
+                            await updateNotToTransferDetails(
+                              item.Component_Material,
+                              item.NotToTransferReason || '',
+                              e.target.value
+                            );
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                      <StatusButton
+                        currentStatus={(item.Transfer_Status || 'Not Start') as TransferStatus}
+                        onStatusChange={(status) => updateStatus(item.Component_Material, status)}
+                      />
+                      <span className="text-slate-400">Recorded in Firebase</span>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center justify-between text-xs text-slate-500">
-                  <span>价值 {formatCurrency(item.Value || 0)}</span>
-                  <StatusButton
-                    currentStatus={item.Transfer_Status || 'Not Start'}
-                    onStatusChange={(status) => updateStatus(item.Component_Material, status)}
-                  />
-                </div>
-              </div>
-            ))}
-            {notToTransferItems.length === 0 && (
-              <p className="text-sm text-slate-500">暂无 Not to Transfer 记录。</p>
-            )}
+              ))}
+              {remainingItems.length === 0 && (
+                <div className="p-4 text-sm text-slate-500">No Not to Transfer items remain in AU.</div>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -750,15 +755,15 @@ export default function ProfessionalDashboard() {
     <div className="space-y-6">
       <SectionHeader
         title="Report"
-        description="一键生成当前阶段报告，覆盖完成率、价值与风险"
+        description="One-click snapshot across completion, value, and risk"
         icon={FilePieChart}
       />
 
       <Card className={professionalPalette.surface}>
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle>阶段概览</CardTitle>
-            <CardDescription>摘要覆盖完成、价值、延后风险与当前库存</CardDescription>
+            <CardTitle>Stage overview</CardTitle>
+            <CardDescription>Completion, value, delays, and current BoM snapshot</CardDescription>
           </div>
           <Button
             onClick={() => {
@@ -774,29 +779,29 @@ export default function ProfessionalDashboard() {
             className="gap-2"
           >
             <ClipboardList className="h-4 w-4" />
-            导出报告
+            Export report
           </Button>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <div className="text-xs text-slate-500">完成率</div>
+              <div className="text-xs text-slate-500">Completion</div>
               <div className="text-2xl font-semibold text-slate-900">
                 {Math.round((summary.completedParts / Math.max(summary.totalParts, 1)) * 100)}%
               </div>
             </div>
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <div className="text-xs text-slate-500">完成价值</div>
+              <div className="text-xs text-slate-500">Value completed</div>
               <div className="text-2xl font-semibold text-emerald-600">
                 {formatCurrency(summary.completedValue)}
               </div>
             </div>
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <div className="text-xs text-slate-500">延后计划</div>
+              <div className="text-xs text-slate-500">Past-due plans</div>
               <div className="text-2xl font-semibold text-amber-600">{delayedCount}</div>
             </div>
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <div className="text-xs text-slate-500">当前 BoM (含在途)</div>
+              <div className="text-xs text-slate-500">Current BoM (Not Start)</div>
               <div className="text-2xl font-semibold text-indigo-600">{currentBomItems.length}</div>
             </div>
           </div>
@@ -819,8 +824,6 @@ export default function ProfessionalDashboard() {
         return renderCurrent();
       case 'remaining':
         return renderRemaining();
-      case 'notToTransfer':
-        return renderNotToTransfer();
       case 'report':
         return renderReport();
       default:
@@ -835,8 +838,8 @@ export default function ProfessionalDashboard() {
           <div className="flex items-center gap-2 pb-4">
             <Sparkles className="h-5 w-5 text-indigo-600" />
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-500">Transfer Studio</p>
-              <p className="text-base font-semibold text-slate-900">Professional View</p>
+              <p className="text-xs uppercase tracking-wide text-slate-500">Transfer dashboard</p>
+              <p className="text-base font-semibold text-slate-900">Operations view</p>
             </div>
           </div>
           <Separator className="my-3" />
@@ -871,12 +874,12 @@ export default function ProfessionalDashboard() {
             <div>
               <h1 className="text-3xl font-bold text-slate-900">BoM Transfer Command Center</h1>
               <p className="text-sm text-slate-600">
-                精准跟踪完成、计划、Not to Transfer 与报告输出，让交付更专业。
+                Track completions, plans, AU holds, and reporting in one professional view.
               </p>
             </div>
             <div className="flex items-center gap-2 text-sm text-slate-500">
               <Activity className="h-4 w-4 text-emerald-600" />
-              实时同步 Firebase
+              Data synced from Firebase
             </div>
           </div>
 
