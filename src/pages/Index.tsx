@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { addMonths, format, isBefore, isValid, parseISO, startOfMonth } from 'date-fns';
+import { format, isBefore, isValid, parseISO, startOfMonth } from 'date-fns';
 import {
   Activity,
   ArrowUpDown,
@@ -10,6 +10,7 @@ import {
   FilePieChart,
   Flag,
   Layers,
+  Lightbulb,
   NotebookPen,
   Sparkles,
 } from 'lucide-react';
@@ -34,7 +35,8 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { StatusButton } from '@/components/StatusButton';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
@@ -104,55 +106,29 @@ const DateSelector = ({
 }) => {
   const parsed = value ? parseDate(value) : null;
 
-  const normalized = parsed ? startOfMonth(parsed) : null;
-
-  const monthOptions = useMemo(() => {
-    const start = startOfMonth(new Date());
-    const options = Array.from({ length: 18 }, (_, index) => {
-      const date = addMonths(start, index - 3);
-      return {
-        value: date.toISOString(),
-        label: format(date, 'MMM yyyy'),
-        sortValue: +date,
-      };
-    });
-
-    if (normalized) {
-      const normalizedValue = normalized.toISOString();
-      if (!options.some((option) => option.value === normalizedValue)) {
-        options.push({ value: normalizedValue, label: format(normalized, 'MMM yyyy'), sortValue: +normalized });
-      }
-    }
-
-    return options.sort((a, b) => a.sortValue - b.sortValue);
-  }, [normalized]);
-
   return (
-    <Select
-      value={normalized ? normalized.toISOString() : 'none'}
-      onValueChange={(newValue) => {
-        if (!newValue) return;
-        if (newValue === 'none') {
-          onChange(null);
-          return;
-        }
-        const selected = parseDate(newValue) ?? new Date(newValue);
-        onChange(startOfMonth(selected).toISOString());
-      }}
-    >
-      <SelectTrigger className={cn('w-full justify-start text-left font-normal', !value && 'text-muted-foreground')}>
-        <CalendarIcon className="mr-2 h-4 w-4" />
-        <SelectValue placeholder="Select month" />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="none">No month</SelectItem>
-        {monthOptions.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
-            {option.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className={cn(
+            'w-full justify-start text-left font-normal',
+            !value && 'text-muted-foreground'
+          )}
+        >
+          <CalendarIcon className="mr-2 h-4 w-4" />
+          {parsed ? format(parsed, 'MMM yyyy') : 'Select month'}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={parsed ?? undefined}
+          onSelect={(date) => onChange(date ? date.toISOString() : null)}
+          initialFocus
+        />
+      </PopoverContent>
+    </Popover>
   );
 };
 
@@ -225,8 +201,7 @@ export default function ProfessionalDashboard() {
   const sortedPlan = useMemo(() => sortItems(planItems), [planItems, sortItems]);
   const sortedCurrent = useMemo(() => sortItems(currentBomItems), [currentBomItems, sortItems]);
   const sortedRemaining = useMemo(() => sortItems(remainingItems), [remainingItems, sortItems]);
-  const totalPartsBaseline =
-    remainingItems.length + currentBomItems.length + planItems.length + completedItems.length;
+  const totalPartsBaseline = bomItems.length;
 
   const SortControls = ({ title }: { title?: string }) => {
     const sortOptions: { key: typeof sortField; label: string }[] = [
@@ -440,15 +415,6 @@ export default function ProfessionalDashboard() {
     completedParts: completedItems.length,
   };
 
-  const remainingSummary = useMemo(
-    () => ({
-      count: remainingItems.length,
-      totalQty: remainingItems.reduce((sum, item) => sum + (item.Total_Qty || 0), 0),
-      totalValue: remainingItems.reduce((sum, item) => sum + (item.Value || 0), 0),
-    }),
-    [remainingItems]
-  );
-
   const reportText = `BoM Transfer Report\n\n- Parts completed: ${summary.completedParts}/${summary.totalParts}\n- Completion rate: ${Math.round(
     (summary.completedParts / Math.max(summary.totalParts, 1)) * 100
   )}%\n- Value completed: ${formatCurrency(summary.completedValue)}\n- Remaining (excluding Not to Transfer): ${currentBomItems.length} parts\n- Delayed plans: ${delayedCount}\nGenerated on: ${format(new Date(), 'PPpp')}`;
@@ -482,170 +448,154 @@ export default function ProfessionalDashboard() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 xl:grid-cols-[1.25fr_1.05fr] 2xl:grid-cols-[1.35fr_1fr]">
-        <div className="space-y-6">
-          <Card className={professionalPalette.surface}>
-            <CardHeader className="flex items-center justify-between">
-              <div>
-                <CardTitle>Completion distribution</CardTitle>
-                <CardDescription>Volume and value on independent axes (latest domestic buy date)</CardDescription>
-              </div>
-              <Badge variant="outline" className="text-xs">2025</Badge>
-            </CardHeader>
-            <CardContent>
-              <div className="h-80">
-                <ChartContainer
-                  config={{
-                    count: { label: 'Parts', color: 'hsl(215, 85%, 55%)' },
-                    value: { label: 'Value', color: 'hsl(158, 70%, 45%)' },
-                  }}
-                >
-                  <ResponsiveContainer>
-                    <ComposedChart data={completedChart}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis
-                        yAxisId="left"
-                        tickFormatter={formatCompactNumber}
-                        label={{ value: 'Parts', angle: -90, position: 'insideLeft' }}
-                      />
-                      <YAxis
-                        yAxisId="right"
-                        orientation="right"
-                        tickFormatter={formatCompactNumber}
-                        label={{ value: 'Total Value', angle: 90, position: 'insideRight' }}
-                      />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Legend />
-                      <Bar
-                        yAxisId="left"
-                        dataKey="count"
-                        name="Parts"
-                        fill="var(--color-count)"
-                        radius={[6, 6, 0, 0]}
-                        barSize={32}
-                      />
-                      <Line
-                        type="monotone"
-                        yAxisId="right"
-                        dataKey="value"
-                        name="Value"
-                        stroke="var(--color-value)"
-                        strokeWidth={3}
-                        dot={{ r: 3 }}
-                      />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className={professionalPalette.surface}>
-            <CardHeader className="flex items-center justify-between">
-              <div>
-                <CardTitle>2025 total quantity decline</CardTitle>
-                <CardDescription>Baseline: all AU hold + Not Start + In Progress + Completed</CardDescription>
-              </div>
-              <Badge variant="outline" className="text-xs">Cumulative</Badge>
-            </CardHeader>
-            <CardContent>
-              <div className="h-64">
-                <ChartContainer
-                  config={{
-                    remaining: { label: 'Remaining before month', color: 'hsl(215, 80%, 50%)' },
-                    remainingAfter: { label: 'Remaining after completions', color: 'hsl(34, 94%, 50%)' },
-                  }}
-                >
-                  <ResponsiveContainer>
-                    <ComposedChart data={completedDecline}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis tickFormatter={formatCompactNumber} />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Legend />
-                      <Line
-                        type="monotone"
-                        dataKey="remaining"
-                        name="Remaining before"
-                        stroke="var(--color-remaining)"
-                        strokeWidth={3}
-                        dot={{ r: 3 }}
-                      />
-                      <Bar
-                        dataKey="remainingAfter"
-                        name="After completions"
-                        fill="var(--color-remainingAfter)"
-                        radius={[8, 8, 0, 0]}
-                        barSize={32}
-                      />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      <div className="grid gap-6 xl:grid-cols-3 2xl:grid-cols-[1fr_1fr_1.35fr]">
+        <Card className={professionalPalette.surface}>
+          <CardHeader className="flex items-center justify-between">
+            <div>
+              <CardTitle>Completion distribution</CardTitle>
+              <CardDescription>Volume and value on independent axes (latest domestic buy date)</CardDescription>
+            </div>
+            <Badge variant="outline" className="text-xs">2025</Badge>
+          </CardHeader>
+          <CardContent>
+            <div className="h-80">
+              <ChartContainer
+                config={{
+                  count: { label: 'Parts', color: 'hsl(215, 85%, 55%)' },
+                  value: { label: 'Value', color: 'hsl(158, 70%, 45%)' },
+                }}
+              >
+                <ResponsiveContainer>
+                  <ComposedChart data={completedChart}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis
+                      yAxisId="left"
+                      tickFormatter={formatCompactNumber}
+                      label={{ value: 'Parts', angle: -90, position: 'insideLeft' }}
+                    />
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      tickFormatter={formatCompactNumber}
+                      label={{ value: 'Total Value', angle: 90, position: 'insideRight' }}
+                    />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Legend />
+                    <Bar
+                      yAxisId="left"
+                      dataKey="count"
+                      name="Parts"
+                      barSize={26}
+                      fill="var(--color-count)"
+                      radius={[8, 8, 0, 0]}
+                    />
+                    <Bar
+                      yAxisId="right"
+                      dataKey="value"
+                      name="Value"
+                      barSize={26}
+                      fill="var(--color-value)"
+                      radius={[8, 8, 0, 0]}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            </div>
+          </CardContent>
+        </Card>
 
         <Card className={professionalPalette.surface}>
-          <CardHeader className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+          <CardHeader>
+            <CardTitle>2025 total quantity decline</CardTitle>
+            <CardDescription>Cumulative remaining parts as completions land</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-80">
+              <ChartContainer
+                config={{
+                  remainingAfter: { label: 'Remaining after month', color: 'hsl(221, 83%, 53%)' },
+                }}
+              >
+                <ResponsiveContainer>
+                  <ComposedChart data={completedDecline}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis tickFormatter={formatCompactNumber} label={{ value: 'Parts', angle: -90, position: 'insideLeft' }} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="remainingAfter"
+                      name="Remaining parts"
+                      stroke="var(--color-remainingAfter)"
+                      strokeWidth={3}
+                      dot={{ r: 3 }}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className={`${professionalPalette.surface} xl:col-span-2`}>
+          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle>Completed parts detail</CardTitle>
-              <CardDescription>Saved latest domestic purchase dates</CardDescription>
+              <CardTitle>Completed parts</CardTitle>
+              <CardDescription>Latest domestic purchase month, value, and imagery</CardDescription>
             </div>
             <SortControls title="Sort completed" />
           </CardHeader>
           <CardContent className="p-0">
-            <ScrollArea className="h-[760px]">
+            <ScrollArea className="h-[620px]">
               <div className="divide-y divide-slate-200">
-                {sortedCompleted.map((item) => (
-                  <div
-                    key={item.Component_Material}
-                    className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1.35fr)] lg:items-center"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
-                        {item.imageUrl ? (
-                          <img src={item.imageUrl} alt={item.Component_Material} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">No image</div>
-                        )}
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold text-slate-900">{item.Component_Material}</p>
-                          <Badge variant="outline" className="text-xs">Completed</Badge>
+                {sortedCompleted.map((item) => {
+                  const lastBuy = parseDate(item.Latest_Component_Date);
+                  return (
+                    <div
+                      key={item.Component_Material}
+                      className="grid gap-4 p-4 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1.5fr)] md:items-center"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
+                          {item.imageUrl ? (
+                            <img src={item.imageUrl} alt={item.Component_Material} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">No image</div>
+                          )}
                         </div>
-                        <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold text-slate-900">{item.Component_Material}</p>
+                            <Badge className="bg-emerald-50 text-emerald-700">Finished</Badge>
+                          </div>
+                          <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
+                        </div>
+                      </div>
+                      <div className="grid gap-3 text-sm text-slate-600 md:grid-cols-4 md:items-center">
+                        <div className="flex flex-col text-right md:items-end">
+                          <span className="text-xs text-slate-500">Total value</span>
+                          <span className="font-semibold text-slate-900">{formatCurrency(item.Value || 0)}</span>
+                        </div>
+                        <div className="flex flex-col text-right md:items-end">
+                          <span className="text-xs text-slate-500">Unit price</span>
+                          <span className="font-semibold text-slate-900">{formatCurrency(item.Standard_Price || 0)}</span>
+                        </div>
+                        <div className="flex flex-col text-right md:items-end">
+                          <span className="text-xs text-slate-500">Total qty</span>
+                          <span className="font-semibold text-slate-900">{item.Total_Qty || 0}</span>
+                        </div>
+                        <div className="flex flex-col text-right md:items-end">
+                          <span className="text-xs text-slate-500">Latest buy</span>
+                          <span>{lastBuy ? format(lastBuy, 'MMM yyyy') : 'N/A'}</span>
+                        </div>
                       </div>
                     </div>
-                    <div className="grid gap-4 text-sm text-slate-600 md:grid-cols-4 md:items-center">
-                      <div className="flex flex-col text-right md:items-end">
-                        <span className="text-xs text-slate-500">Total value</span>
-                        <span className="font-semibold text-slate-900">{formatCurrency(item.Value || 0)}</span>
-                      </div>
-                      <div className="flex flex-col text-right md:items-end">
-                        <span className="text-xs text-slate-500">Unit price</span>
-                        <span className="font-semibold text-slate-900">{formatCurrency(item.Standard_Price || 0)}</span>
-                        <span className="text-[11px] text-slate-500">Qty: {item.Total_Qty || 0}</span>
-                      </div>
-                      <div className="flex flex-col text-right md:items-end">
-                        <span className="text-xs text-slate-500">Latest domestic buy</span>
-                        <span className="font-semibold text-slate-900">{item.Latest_Component_Date || 'N/A'}</span>
-                        <span className="text-[11px] text-slate-500">Status: {item.Transfer_Status || 'Finished'}</span>
-                      </div>
-                      <div className="flex items-center justify-end gap-2 text-xs text-slate-500 md:justify-self-end">
-                        <span className="hidden md:inline">Kanban: {item.Kanban_Flag || '-'}</span>
-                        <StatusButton
-                          currentStatus={(item.Transfer_Status || 'Not Start') as TransferStatus}
-                          onStatusChange={(status) => updateStatus(item.Component_Material, status)}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {completedItems.length === 0 && (
-                  <div className="p-4 text-sm text-slate-500">No completed items recorded.</div>
+                  <div className="p-4 text-sm text-slate-500">No completed records yet.</div>
                 )}
               </div>
             </ScrollArea>
@@ -659,7 +609,7 @@ export default function ProfessionalDashboard() {
     <div className="space-y-6">
       <SectionHeader
         title="Plan (In Progress)"
-        description="Forecasted completions with value overlay and expected dates"
+        description="Register expected completion dates, track value and slippage"
         icon={NotebookPen}
       />
 
@@ -667,17 +617,17 @@ export default function ProfessionalDashboard() {
         <CardContent className="grid gap-4 md:grid-cols-3 md:divide-x divide-slate-200 p-6">
           <div className="flex flex-col gap-1">
             <span className="text-xs uppercase tracking-wide text-slate-500">In progress</span>
-            <span className="text-3xl font-semibold text-slate-900">{planItems.length}</span>
+            <span className="text-3xl font-semibold text-slate-900">{planItems.length} parts</span>
           </div>
           <div className="flex flex-col gap-1 px-0 md:px-6">
-            <span className="text-xs uppercase tracking-wide text-slate-500">Delayed</span>
-            <span className="text-3xl font-semibold text-amber-600">{delayedCount} parts</span>
+            <span className="text-xs uppercase tracking-wide text-slate-500">Forecasted parts</span>
+            <span className="text-3xl font-semibold text-indigo-600">
+              {planForecast.reduce((sum, item) => sum + item.parts, 0)} parts
+            </span>
           </div>
           <div className="flex flex-col gap-1">
-            <span className="text-xs uppercase tracking-wide text-slate-500">Value in progress</span>
-            <span className="text-3xl font-semibold text-emerald-600">
-              {formatCurrency(planItems.reduce((sum, item) => sum + (item.Value || 0), 0))}
-            </span>
+            <span className="text-xs uppercase tracking-wide text-slate-500">Past due</span>
+            <span className="text-3xl font-semibold text-amber-600">{delayedCount} parts</span>
           </div>
         </CardContent>
       </Card>
@@ -947,27 +897,6 @@ export default function ProfessionalDashboard() {
         icon={Factory}
       />
 
-      <div className="grid gap-3 md:grid-cols-3">
-        <Card className="border-slate-200 bg-white/80">
-          <CardContent className="p-4">
-            <div className="text-xs uppercase tracking-wide text-slate-500">AU holds</div>
-            <div className="text-2xl font-semibold text-slate-900">{remainingSummary.count}</div>
-          </CardContent>
-        </Card>
-        <Card className="border-slate-200 bg-white/80">
-          <CardContent className="p-4">
-            <div className="text-xs uppercase tracking-wide text-slate-500">Total quantity</div>
-            <div className="text-2xl font-semibold text-slate-900">{remainingSummary.totalQty}</div>
-          </CardContent>
-        </Card>
-        <Card className="border-slate-200 bg-white/80">
-          <CardContent className="p-4">
-            <div className="text-xs uppercase tracking-wide text-slate-500">Total value</div>
-            <div className="text-2xl font-semibold text-indigo-600">{formatCurrency(remainingSummary.totalValue)}</div>
-          </CardContent>
-        </Card>
-      </div>
-
       <Card className={professionalPalette.surface}>
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -1011,13 +940,12 @@ export default function ProfessionalDashboard() {
                       <div className="space-y-1">
                         <Label className="text-xs text-slate-500">Reason</Label>
                         <Input
-                          defaultValue={item.NotToTransferReason || ''}
+                          defaultValue={item.NotToTransferReason}
                           placeholder="Why held in AU"
                           onBlur={async (e) => {
-                            const updatedReason = e.target.value || '';
                             await updateNotToTransferDetails(
                               item.Component_Material,
-                              updatedReason,
+                              e.target.value,
                               item.Brand || ''
                             );
                           }}
@@ -1026,14 +954,13 @@ export default function ProfessionalDashboard() {
                       <div className="space-y-1">
                         <Label className="text-xs text-slate-500">Brand</Label>
                         <Input
-                          defaultValue={item.Brand || ''}
+                          defaultValue={item.Brand}
                           placeholder="Brand"
                           onBlur={async (e) => {
-                            const updatedBrand = e.target.value || '';
                             await updateNotToTransferDetails(
                               item.Component_Material,
                               item.NotToTransferReason || '',
-                              updatedBrand
+                              e.target.value
                             );
                           }}
                         />
