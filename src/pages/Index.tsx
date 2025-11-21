@@ -335,7 +335,7 @@ export default function ProfessionalDashboard() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-[1fr_1.5fr]">
+      <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-[0.8fr_1.5fr]">
         <Card className={professionalPalette.surface}>
           <CardHeader className="flex items-center justify-between">
             <div>
