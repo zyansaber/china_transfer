@@ -3,7 +3,21 @@ import { ref, onValue, update, off } from 'firebase/database';
 import { database, getComponentImageUrl } from '@/lib/firebase';
 import { BomItem, TransferStatus, SortField, SortDirection, KanbanFilter } from '@/types/bom';
 
-export const useBomData = () => {
+interface UseBomDataResult {
+  bomItems: BomItem[];
+  loading: boolean;
+  error: string | null;
+  updateStatus: (componentMaterial: string, status: TransferStatus) => Promise<boolean>;
+  updateExpectedCompletion: (componentMaterial: string, dateISO: string | null) => Promise<boolean>;
+  updateNotToTransferDetails: (
+    componentMaterial: string,
+    reason: string,
+    brand: string
+  ) => Promise<boolean>;
+  updatePlannedStart: (componentMaterial: string, dateISO: string | null) => Promise<boolean>;
+}
+
+export const useBomData = (): UseBomDataResult => {
   const [bomItems, setBomItems] = useState<BomItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +52,7 @@ export const useBomData = () => {
                   Expected_Completion: item.Expected_Completion || '',
                   NotToTransferReason: item.NotToTransferReason || '',
                   Brand: item.Brand || '',
+                  Planned_Start: item.Planned_Start || '',
                 };
               })
             );
@@ -90,6 +105,21 @@ export const useBomData = () => {
       return false;
     }
   };
+
+ const updatePlannedStart = async (componentMaterial: string, dateISO: string | null): Promise<boolean> => {
+    try {
+      const updates = {
+        [`bom_summary/${componentMaterial}/Planned_Start`]: dateISO || null,
+      };
+
+      await update(ref(database), updates);
+      return true;
+    } catch (err) {
+      console.error('Error updating planned start:', err);
+      return false;
+    }
+  };
+
 
   const updateNotToTransferDetails = async (
     componentMaterial: string,
