@@ -67,7 +67,7 @@ const formatCompactNumber = (value: number) => {
 const parseDate = (value?: string) => {
   if (!value) return null;
   const parsed = parseISO(value);
-  return isValid(parsed) ? parsed : null;
+  return isValid(parsed) ? startOfMonth(parsed) : null;
 };
 
 type TabKey =
@@ -106,6 +106,16 @@ const DateSelector = ({
 }) => {
   const parsed = value ? parseDate(value) : null;
 
+  const handleSelect = (date?: Date) => {
+    if (!date) {
+      onChange(null);
+      return;
+    }
+
+    const monthStart = startOfMonth(date);
+    onChange(monthStart.toISOString());
+  };
+  
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -124,7 +134,7 @@ const DateSelector = ({
         <Calendar
           mode="single"
           selected={parsed ?? undefined}
-          onSelect={(date) => onChange(date ? date.toISOString() : null)}
+          onSelect={handleSelect}
           initialFocus
         />
       </PopoverContent>
@@ -1069,7 +1079,7 @@ export default function ProfessionalDashboard() {
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="mx-auto flex w-full max-w-none flex-col gap-6 px-4 py-8 sm:px-6 lg:flex-row lg:items-start lg:py-12 xl:px-8">
-        <aside className="w-full rounded-2xl border border-slate-200 bg-white/90 p-3 shadow-sm lg:w-52 lg:self-start lg:sticky lg:top-8 xl:w-56">
+        <aside className="w-full rounded-2xl border border-slate-200 bg-white/90 p-3 shadow-sm lg:w-48 lg:self-start lg:sticky lg:top-8 xl:w-52">
           <div className="flex items-center gap-2 pb-4">
             <Sparkles className="h-5 w-5 text-indigo-600" />
             <div>
