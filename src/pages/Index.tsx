@@ -853,42 +853,42 @@ export default function ProfessionalDashboard() {
                     <div className="grid gap-4 text-sm text-slate-600 md:grid-cols-4 md:items-center">
                       <div className="flex flex-col text-right md:items-end">
                         <span className="text-xs text-slate-500">Total value</span>
-                        <span className="font-semibold text-slate-900">{formatCurrency(item.Value || 0)}</span>
+                          <span className="text-base font-semibold text-slate-900">{formatCurrency(item.Value || 0)}</span>
+                        </div>
+                        <div className="flex flex-col text-xs text-slate-500 md:items-end">
+                          <span className="uppercase tracking-wide">Unit price</span>
+                          <span className="text-base font-semibold text-slate-900">{formatCurrency(item.Standard_Price || 0)}</span>
+                          <span className="text-[11px] text-slate-500">Qty: {item.Total_Qty || 0}</span>
+                        </div>
+                        <div className="md:col-span-2 md:w-full">
+                          <Label className="text-xs text-slate-500">Expected completion</Label>
+                          <DateSelector
+                            value={item.Expected_Completion}
+                            onChange={async (newDate) => {
+                              await updateExpectedCompletion(item.Component_Material, newDate);
+                            }}
+                          />
+                          {isDelayed && <p className="mt-1 text-xs text-amber-600">Past due</p>}
+                        </div>
+                        <div className="flex flex-col items-start gap-2 md:items-end">
+                          <span className="text-xs text-slate-500">Latest buy: {item.Latest_Component_Date || 'N/A'}</span>
+                          <StatusButton
+                            currentStatus={(item.Transfer_Status || 'Not Start') as TransferStatus}
+                            onStatusChange={(status) => updateStatus(item.Component_Material, status)}
+                          />
+                        </div>
                       </div>
-                      <div className="flex flex-col text-right md:items-end">
-                        <span className="text-xs text-slate-500">Unit price</span>
-                        <span className="font-semibold text-slate-900">{formatCurrency(item.Standard_Price || 0)}</span>
-                        <span className="text-[11px] text-slate-500">Qty: {item.Total_Qty || 0}</span>
-                      </div>
-                      <div className="w-full md:justify-self-end">
-                        <Label className="mb-1 block text-xs text-slate-500">Planned start</Label>
-                        <DateSelector
-                          value={item.Planned_Start}
-                          onChange={async (value) => {
-                            await updatePlannedStart(item.Component_Material, value);
-                          }}
-                        />
-                      </div>
-                      <div className="flex items-center justify-end gap-2 text-xs text-slate-500 md:justify-self-end">
-                        <span className="hidden md:inline">Kanban: {item.Kanban_Flag || '-'}</span>
-                        <StatusButton
-                          currentStatus={(item.Transfer_Status || 'Not Start') as TransferStatus}
-                          onStatusChange={(status) => updateStatus(item.Component_Material, status)}
-                        />
-                      </div>
-                    </div>
                   </div>
-                ))}
-                {currentBomItems.length === 0 && (
-                  <div className="p-4 text-sm text-slate-500">All parts have moved beyond Not Start.</div>
-                )}
-              </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
-      </div>
+                );
+              })}
+              {filteredPlan.length === 0 && (
+                <div className="p-4 text-sm text-slate-500">No items are in progress for this search.</div>
+              )}
+            </div>
+          </ScrollArea>
+        </CardContent>
+      </Card>
     </div>
-  );
 
   const renderCurrent = () => (
     <div className="space-y-6">
