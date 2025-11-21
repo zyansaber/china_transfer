@@ -1078,54 +1078,52 @@ export default function ProfessionalDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto flex w-full max-w-none flex-col gap-6 px-4 py-8 sm:px-6 lg:flex-row lg:items-start lg:py-12 xl:px-8">
-        <aside className="w-full rounded-2xl border border-slate-200 bg-white/90 p-3 shadow-sm lg:w-48 lg:self-start lg:sticky lg:top-8 xl:w-52">
-          <div className="flex items-center gap-2 pb-4">
-            <Sparkles className="h-5 w-5 text-indigo-600" />
-            <div>
-              <p className="text-xs uppercase tracking-wide text-slate-500">Transfer dashboard</p>
-              <p className="text-base font-semibold text-slate-900">Operations view</p>
-            </div>
-          </div>
-          <Separator className="my-3" />
-          <ScrollArea className="h-[70vh] pr-3">
-            <div className="space-y-2">
-              {sidebarNav.map((item) => {
-                const Icon = item.icon;
-                const active = activeTab === item.key;
-                return (
-                  <button
-                    key={item.key}
-                    onClick={() => setActiveTab(item.key)}
-                    className={cn(
-                      'w-full rounded-xl border px-3 py-3 text-left transition',
-                      active ? 'border-indigo-500 bg-indigo-50 shadow-sm' : 'border-slate-200 bg-white hover:border-indigo-200'
-                    )}
-                  >
-                    <div className="flex items-center gap-2 text-slate-900">
-                      <Icon className="h-4 w-4 text-indigo-600" />
-                      <span className="font-semibold">{item.label}</span>
-                    </div>
-                    <p className="text-xs text-slate-500">{item.description}</p>
-                  </button>
-                );
-              })}
-            </div>
-          </ScrollArea>
-        </aside>
-
-        <main className="flex-1 space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900">BoM Transfer Command Center</h1>
-              <p className="text-sm text-slate-600">
-                Track completions, plans, AU holds, and reporting in one professional view.
-              </p>
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6 lg:py-12 xl:px-8">
+        <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-start gap-2">
+              <Sparkles className="mt-0.5 h-5 w-5 text-indigo-600" />
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-500">Transfer dashboard</p>
+                <p className="text-base font-semibold text-slate-900">Operations view</p>
+              </div>
             </div>
             <div className="flex items-center gap-2 text-sm text-slate-500">
               <Activity className="h-4 w-4 text-emerald-600" />
               Data synced from Firebase
             </div>
+          </div>
+          <Separator />
+          <div className="flex flex-wrap gap-2">
+            {sidebarNav.map((item) => {
+              const Icon = item.icon;
+              const active = activeTab === item.key;
+              return (
+                <button
+                  key={item.key}
+                  onClick={() => setActiveTab(item.key)}
+                  className={cn(
+                    'flex min-w-[12rem] flex-1 items-start gap-2 rounded-xl border px-3 py-3 text-left transition md:min-w-[10rem]',
+                    active ? 'border-indigo-500 bg-indigo-50 shadow-sm' : 'border-slate-200 bg-white hover:border-indigo-200'
+                  )}
+                >
+                  <Icon className="mt-0.5 h-4 w-4 text-indigo-600" />
+                  <div className="space-y-1">
+                    <span className="block font-semibold text-slate-900">{item.label}</span>
+                    <p className="text-xs text-slate-500">{item.description}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <main className="space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">BoM Transfer Command Center</h1>
+            <p className="text-sm text-slate-600">
+              Track completions, plans, AU holds, and reporting in one professional view.
+            </p>
           </div>
 
           {renderContent()}
