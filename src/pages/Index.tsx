@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { format, isBefore, isValid, parseISO, startOfMonth } from 'date-fns';
 import {
   Activity,
+  ArrowUpDown,
   BadgeCheck,
   CalendarIcon,
   ClipboardList,
@@ -116,7 +117,7 @@ const DateSelector = ({
           )}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {parsed ? format(parsed, 'PP') : 'Select date'}
+          {parsed ? format(parsed, 'MMM yyyy') : 'Select month'}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="p-0" align="start">
@@ -142,6 +143,8 @@ export default function ProfessionalDashboard() {
     updatePlannedStart,
   } = useBomData();
   const [activeTab, setActiveTab] = useState<TabKey>('completed');
+  const [sortField, setSortField] = useState<'Value' | 'Standard_Price' | 'Total_Qty'>('Value');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   const completedItems = useMemo(
     () => bomItems.filter((item) => (item.Transfer_Status || 'Not Start') === 'Finished'),
@@ -162,6 +165,85 @@ export default function ProfessionalDashboard() {
     () => bomItems.filter((item) => (item.Transfer_Status || 'Not Start') === 'Not to Transfer'),
     [bomItems]
   );
+
+  const sortItems = useMemo(
+    () =>
+      function sort(items: typeof bomItems) {
+        return [...items].sort((a, b) => {
+          let aValue: number;
+          let bValue: number;
+
+          switch (sortField) {
+            case 'Standard_Price':
+              aValue = a.Standard_Price;
+              bValue = b.Standard_Price;
+              break;
+            case 'Total_Qty':
+              aValue = a.Total_Qty;
+              bValue = b.Total_Qty;
+              break;
+            case 'Value':
+            default:
+              aValue = a.Value;
+              bValue = b.Value;
+          }
+
+          if (sortDirection === 'asc') {
+            return aValue - bValue;
+          }
+          return bValue - aValue;
+        });
+      },
+    [sortDirection, sortField]
+  );
+
+  const sortedCompleted = useMemo(() => sortItems(completedItems), [completedItems, sortItems]);
+  const sortedPlan = useMemo(() => sortItems(planItems), [planItems, sortItems]);
+  const sortedCurrent = useMemo(() => sortItems(currentBomItems), [currentBomItems, sortItems]);
+  const sortedRemaining = useMemo(() => sortItems(remainingItems), [remainingItems, sortItems]);
+  const totalPartsBaseline = bomItems.length;
+
+  const SortControls = ({ title }: { title?: string }) => {
+    const sortOptions: { key: typeof sortField; label: string }[] = [
+      { key: 'Standard_Price', label: 'Unit price' },
+      { key: 'Value', label: 'Total value' },
+      { key: 'Total_Qty', label: 'Total qty' },
+    ];
+
+    return (
+      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+        <span className="font-semibold text-slate-700">{title || 'Sort by'}</span>
+        {sortOptions.map((option) => (
+          <Button
+            key={option.key}
+            size="sm"
+            variant={sortField === option.key ? 'default' : 'outline'}
+            className="h-8 text-xs"
+            onClick={() => {
+              if (sortField === option.key) {
+                setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+              } else {
+                setSortField(option.key);
+                setSortDirection('desc');
+              }
+            }}
+          >
+            {option.label}
+            {sortField === option.key && <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>}
+          </Button>
+        ))}
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-8 px-2 text-xs"
+          onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+        >
+          <ArrowUpDown className="mr-1 h-3 w-3" />
+          {sortDirection === 'asc' ? 'Low to High' : 'High to Low'}
+        </Button>
+      </div>
+    );
+  };
 
   const completed2025 = useMemo(
     () =>
@@ -192,6 +274,37 @@ export default function ProfessionalDashboard() {
 
     return Array.from(monthMap.values()).sort((a, b) => a.sortValue - b.sortValue);
   }, [completed2025]);
+
+  const completedDecline = useMemo(() => {
+    const monthMap = new Map<number, { month: string; sortValue: number; completed: number }>();
+
+    completed2025.forEach((item) => {
+      const date = parseDate(item.Latest_Component_Date) || parseDate(item.Status_UpdatedAt);
+      if (!date) return;
+      const sortValue = +startOfMonth(date);
+      const entry = monthMap.get(sortValue) ?? {
+        month: format(date, 'MMM'),
+        sortValue,
+        completed: 0,
+      };
+      entry.completed += 1;
+      monthMap.set(sortValue, entry);
+    });
+
+    const ordered = Array.from(monthMap.values()).sort((a, b) => a.sortValue - b.sortValue);
+
+    let remaining = totalPartsBaseline;
+    return ordered.map((entry) => {
+      const remainingAfter = Math.max(remaining - entry.completed, 0);
+      const dataPoint = {
+        month: entry.month,
+        remaining,
+        remainingAfter,
+      };
+      remaining = remainingAfter;
+      return dataPoint;
+    });
+  }, [completed2025, totalPartsBaseline]);
 
   const planForecast = useMemo(() => {
     const today = new Date();
@@ -335,7 +448,7 @@ export default function ProfessionalDashboard() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-[0.8fr_1.5fr]">
+      <div className="grid gap-6 xl:grid-cols-3 2xl:grid-cols-[1fr_1fr_1.35fr]">
         <Card className={professionalPalette.surface}>
           <CardHeader className="flex items-center justify-between">
             <div>
@@ -394,18 +507,55 @@ export default function ProfessionalDashboard() {
 
         <Card className={professionalPalette.surface}>
           <CardHeader>
-            <CardTitle>Completed parts</CardTitle>
-            <CardDescription>Latest domestic purchase month, value, and imagery</CardDescription>
+            <CardTitle>2025 total quantity decline</CardTitle>
+            <CardDescription>Cumulative remaining parts as completions land</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-80">
+              <ChartContainer
+                config={{
+                  remainingAfter: { label: 'Remaining after month', color: 'hsl(221, 83%, 53%)' },
+                }}
+              >
+                <ResponsiveContainer>
+                  <ComposedChart data={completedDecline}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis tickFormatter={formatCompactNumber} label={{ value: 'Parts', angle: -90, position: 'insideLeft' }} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="remainingAfter"
+                      name="Remaining parts"
+                      stroke="var(--color-remainingAfter)"
+                      strokeWidth={3}
+                      dot={{ r: 3 }}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className={`${professionalPalette.surface} xl:col-span-2`}>
+          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle>Completed parts</CardTitle>
+              <CardDescription>Latest domestic purchase month, value, and imagery</CardDescription>
+            </div>
+            <SortControls title="Sort completed" />
           </CardHeader>
           <CardContent className="p-0">
             <ScrollArea className="h-[620px]">
               <div className="divide-y divide-slate-200">
-                {completedItems.map((item) => {
+                {sortedCompleted.map((item) => {
                   const lastBuy = parseDate(item.Latest_Component_Date);
                   return (
                     <div
                       key={item.Component_Material}
-                      className="grid gap-4 p-4 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1.25fr)] md:items-center"
+                      className="grid gap-4 p-4 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1.5fr)] md:items-center"
                     >
                       <div className="flex items-start gap-3">
                         <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
@@ -423,12 +573,23 @@ export default function ProfessionalDashboard() {
                           <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
                         </div>
                       </div>
-                      <div className="grid gap-4 text-sm text-slate-600 md:grid-cols-3 md:items-center">
-                        <span className="font-semibold text-slate-900 md:text-right">{formatCurrency(item.Value || 0)}</span>
-                        <span className="md:text-right">{lastBuy ? format(lastBuy, 'MMM yyyy') : 'N/A'}</span>
-                        <span className="text-xs text-slate-500 md:text-right">
-                          Updated {item.Status_UpdatedAt ? format(parseDate(item.Status_UpdatedAt) || new Date(), 'PP') : '—'}
-                        </span>
+                      <div className="grid gap-3 text-sm text-slate-600 md:grid-cols-4 md:items-center">
+                        <div className="flex flex-col text-right md:items-end">
+                          <span className="text-xs text-slate-500">Total value</span>
+                          <span className="font-semibold text-slate-900">{formatCurrency(item.Value || 0)}</span>
+                        </div>
+                        <div className="flex flex-col text-right md:items-end">
+                          <span className="text-xs text-slate-500">Unit price</span>
+                          <span className="font-semibold text-slate-900">{formatCurrency(item.Standard_Price || 0)}</span>
+                        </div>
+                        <div className="flex flex-col text-right md:items-end">
+                          <span className="text-xs text-slate-500">Total qty</span>
+                          <span className="font-semibold text-slate-900">{item.Total_Qty || 0}</span>
+                        </div>
+                        <div className="flex flex-col text-right md:items-end">
+                          <span className="text-xs text-slate-500">Latest buy</span>
+                          <span>{lastBuy ? format(lastBuy, 'MMM yyyy') : 'N/A'}</span>
+                        </div>
                       </div>
                     </div>
                   );
@@ -527,20 +688,23 @@ export default function ProfessionalDashboard() {
         </Card>
 
         <Card className={professionalPalette.surface}>
-          <CardHeader>
-            <CardTitle>Planned detail</CardTitle>
-            <CardDescription>Expected completion dates saved to Firebase</CardDescription>
+          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle>Planned detail</CardTitle>
+              <CardDescription>Expected completion dates saved to Firebase</CardDescription>
+            </div>
+            <SortControls title="Sort in progress" />
           </CardHeader>
           <CardContent className="p-0">
             <ScrollArea className="h-[620px]">
               <div className="divide-y divide-slate-200">
-                {planItems.map((item) => {
+                {sortedPlan.map((item) => {
                   const expected = parseDate(item.Expected_Completion);
                   const isDelayed = expected ? isBefore(expected, new Date()) : false;
                   return (
                     <div
                       key={item.Component_Material}
-                      className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1.3fr)] lg:items-start"
+                      className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1.45fr)] lg:items-start"
                     >
                       <div className="flex items-start gap-3">
                         <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
@@ -560,10 +724,15 @@ export default function ProfessionalDashboard() {
                           <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
                         </div>
                       </div>
-                      <div className="grid gap-4 text-sm text-slate-600 md:grid-cols-4 md:items-start">
+                      <div className="grid gap-4 text-sm text-slate-600 md:grid-cols-5 md:items-start">
                         <div className="flex flex-col text-xs text-slate-500 md:items-end">
                           <span className="uppercase tracking-wide">Value</span>
                           <span className="text-base font-semibold text-slate-900">{formatCurrency(item.Value || 0)}</span>
+                        </div>
+                        <div className="flex flex-col text-xs text-slate-500 md:items-end">
+                          <span className="uppercase tracking-wide">Unit price</span>
+                          <span className="text-base font-semibold text-slate-900">{formatCurrency(item.Standard_Price || 0)}</span>
+                          <span className="text-[11px] text-slate-500">Qty: {item.Total_Qty || 0}</span>
                         </div>
                         <div className="md:col-span-2 md:w-full">
                           <Label className="text-xs text-slate-500">Expected completion</Label>
@@ -649,17 +818,20 @@ export default function ProfessionalDashboard() {
         </Card>
 
         <Card className={professionalPalette.surface}>
-          <CardHeader>
-            <CardTitle>Not Start detail</CardTitle>
-            <CardDescription>Record planned starts while keeping the chart locked beside the table</CardDescription>
+          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle>Not Start detail</CardTitle>
+              <CardDescription>Record planned starts while keeping the chart locked beside the table</CardDescription>
+            </div>
+            <SortControls title="Sort Not Start" />
           </CardHeader>
           <CardContent className="p-0">
             <ScrollArea className="h-[620px]">
               <div className="divide-y divide-slate-200">
-                {currentBomItems.map((item) => (
+                {sortedCurrent.map((item) => (
                   <div
                     key={item.Component_Material}
-                    className="grid gap-4 p-4 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1.25fr)] md:items-center"
+                    className="grid gap-4 p-4 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1.5fr)] md:items-center"
                   >
                     <div className="flex items-start gap-3">
                       <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
@@ -677,8 +849,16 @@ export default function ProfessionalDashboard() {
                         <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
                       </div>
                     </div>
-                    <div className="grid gap-4 text-sm text-slate-600 md:grid-cols-3 md:items-center">
-                      <span className="font-semibold text-slate-900 md:text-right">{formatCurrency(item.Value || 0)}</span>
+                    <div className="grid gap-4 text-sm text-slate-600 md:grid-cols-4 md:items-center">
+                      <div className="flex flex-col text-right md:items-end">
+                        <span className="text-xs text-slate-500">Total value</span>
+                        <span className="font-semibold text-slate-900">{formatCurrency(item.Value || 0)}</span>
+                      </div>
+                      <div className="flex flex-col text-right md:items-end">
+                        <span className="text-xs text-slate-500">Unit price</span>
+                        <span className="font-semibold text-slate-900">{formatCurrency(item.Standard_Price || 0)}</span>
+                        <span className="text-[11px] text-slate-500">Qty: {item.Total_Qty || 0}</span>
+                      </div>
                       <div className="w-full md:justify-self-end">
                         <Label className="mb-1 block text-xs text-slate-500">Planned start</Label>
                         <DateSelector
@@ -718,14 +898,17 @@ export default function ProfessionalDashboard() {
       />
 
       <Card className={professionalPalette.surface}>
-        <CardHeader>
-          <CardTitle>Hold detail</CardTitle>
-          <CardDescription>Capture reason and brand for each Not to Transfer item</CardDescription>
+        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle>Hold detail</CardTitle>
+            <CardDescription>Capture reason and brand for each Not to Transfer item</CardDescription>
+          </div>
+          <SortControls title="Sort holds" />
         </CardHeader>
         <CardContent>
           <div className="rounded-xl border border-slate-200 overflow-hidden">
             <div className="divide-y divide-slate-200">
-              {remainingItems.map((item) => (
+              {sortedRemaining.map((item) => (
                 <div
                   key={item.Component_Material}
                   className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1.1fr)] lg:items-start"
@@ -746,6 +929,8 @@ export default function ProfessionalDashboard() {
                       <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
                       <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
                         <span>Value {formatCurrency(item.Value || 0)}</span>
+                        <span>Unit {formatCurrency(item.Standard_Price || 0)}</span>
+                        <span>Qty {item.Total_Qty || 0}</span>
                         <span>Kanban: {item.Kanban_Flag || '-'}</span>
                       </div>
                     </div>
@@ -883,8 +1068,8 @@ export default function ProfessionalDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto flex w-full max-w-none flex-col gap-6 px-6 py-8 lg:flex-row lg:py-12 xl:px-10">
-        <aside className="w-full rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm lg:w-64">
+      <div className="mx-auto flex w-full max-w-none flex-col gap-6 px-4 py-8 sm:px-6 lg:flex-row lg:items-start lg:py-12 xl:px-8">
+        <aside className="w-full rounded-2xl border border-slate-200 bg-white/90 p-3 shadow-sm lg:w-52 lg:self-start lg:sticky lg:top-8 xl:w-56">
           <div className="flex items-center gap-2 pb-4">
             <Sparkles className="h-5 w-5 text-indigo-600" />
             <div>
