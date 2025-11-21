@@ -398,7 +398,7 @@ export default function ProfessionalDashboard() {
               {completedItems.map((item) => {
                 const lastBuy = parseDate(item.Latest_Component_Date);
                 return (
-                  <div
+                 <div
                     key={item.Component_Material}
                     className="grid gap-4 p-4 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] md:items-center"
                   >
