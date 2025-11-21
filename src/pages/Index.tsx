@@ -154,9 +154,9 @@ const DateSelector = ({
 
   return (
     <Select
-      value={parsed ? parsed.toISOString() : ''}
+      value={parsed ? parsed.toISOString() : undefined}
       onValueChange={(newValue) => {
-        if (!newValue) {
+        if (newValue === 'clear') {
           onChange(null);
           return;
         }
@@ -170,7 +170,7 @@ const DateSelector = ({
         </div>
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="">Clear</SelectItem>
+        <SelectItem value="clear">Clear</SelectItem>
         {monthOptions.map((month) => (
           <SelectItem key={month.value} value={month.value}>
             {month.label}
@@ -858,7 +858,7 @@ export default function ProfessionalDashboard() {
                           <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
                         </div>
                         </div>
-                        <div className="flex flex-col gap-1 text-right text-slate-700 lg:items-end">
+                      <div className="flex flex-col gap-1 text-right text-slate-700 lg:items-end">
                         <span className="text-xs text-slate-500">Total value</span>
                         <span className="font-semibold text-slate-900">{formatCurrency(item.Value || 0)}</span>
                         <span className="text-[12px] text-slate-500">Qty: {item.Total_Qty || 0}</span>
