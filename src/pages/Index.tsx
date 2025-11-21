@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { format, isBefore, isValid, parseISO, startOfMonth } from 'date-fns';
+import { addMonths, format, isBefore, isValid, parseISO, startOfMonth } from 'date-fns';
 import {
   Activity,
   ArrowUpDown,
@@ -35,8 +35,7 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { StatusButton } from '@/components/StatusButton';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
@@ -106,29 +105,55 @@ const DateSelector = ({
 }) => {
   const parsed = value ? parseDate(value) : null;
 
+  const normalized = parsed ? startOfMonth(parsed) : null;
+
+  const monthOptions = useMemo(() => {
+    const start = startOfMonth(new Date());
+    const options = Array.from({ length: 18 }, (_, index) => {
+      const date = addMonths(start, index - 3);
+      return {
+        value: date.toISOString(),
+        label: format(date, 'MMM yyyy'),
+        sortValue: +date,
+      };
+    });
+
+    if (normalized) {
+      const normalizedValue = normalized.toISOString();
+      if (!options.some((option) => option.value === normalizedValue)) {
+        options.push({ value: normalizedValue, label: format(normalized, 'MMM yyyy'), sortValue: +normalized });
+      }
+    }
+
+    return options.sort((a, b) => a.sortValue - b.sortValue);
+  }, [normalized]);
+
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          className={cn(
-            'w-full justify-start text-left font-normal',
-            !value && 'text-muted-foreground'
-          )}
-        >
-          <CalendarIcon className="mr-2 h-4 w-4" />
-          {parsed ? format(parsed, 'MMM yyyy') : 'Select month'}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="p-0" align="start">
-        <Calendar
-          mode="single"
-          selected={parsed ?? undefined}
-          onSelect={(date) => onChange(date ? date.toISOString() : null)}
-          initialFocus
-        />
-      </PopoverContent>
-    </Popover>
+    <Select
+      value={normalized ? normalized.toISOString() : 'none'}
+      onValueChange={(newValue) => {
+        if (!newValue) return;
+        if (newValue === 'none') {
+          onChange(null);
+          return;
+        }
+        const selected = parseDate(newValue) ?? new Date(newValue);
+        onChange(startOfMonth(selected).toISOString());
+      }}
+    >
+      <SelectTrigger className={cn('w-full justify-start text-left font-normal', !value && 'text-muted-foreground')}>
+        <CalendarIcon className="mr-2 h-4 w-4" />
+        <SelectValue placeholder="Select month" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="none">No month</SelectItem>
+        {monthOptions.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 };
 
@@ -201,7 +226,8 @@ export default function ProfessionalDashboard() {
   const sortedPlan = useMemo(() => sortItems(planItems), [planItems, sortItems]);
   const sortedCurrent = useMemo(() => sortItems(currentBomItems), [currentBomItems, sortItems]);
   const sortedRemaining = useMemo(() => sortItems(remainingItems), [remainingItems, sortItems]);
-  const totalPartsBaseline = bomItems.length;
+  const totalPartsBaseline =
+    remainingItems.length + currentBomItems.length + planItems.length + completedItems.length;
 
   const SortControls = ({ title }: { title?: string }) => {
     const sortOptions: { key: typeof sortField; label: string }[] = [
@@ -333,25 +359,6 @@ export default function ProfessionalDashboard() {
     });
 
     return Array.from(monthMap.values()).sort((a, b) => a.sortValue - b.sortValue);
-  }, [planItems]);
-
-  const plannedStartSchedule = useMemo(() => {
-    const monthMap = new Map<string, { month: string; sortValue: number; starts: number }>();
-
-    currentBomItems.forEach((item) => {
-      const planned = parseDate(item.Planned_Start);
-      if (!planned) return;
-      const key = format(planned, 'yyyy-MM');
-      const entry = monthMap.get(key) ?? {
-        month: format(planned, 'MMM'),
-        sortValue: +startOfMonth(planned),
-        starts: 0,
-      };
-      entry.starts += 1;
-      monthMap.set(key, entry);
-    });
-
-    return Array.from(monthMap.values()).sort((a, b) => a.sortValue - b.sortValue);
   }, [currentBomItems]);
 
   const plannedStartTrajectory = useMemo(() => {
@@ -415,6 +422,15 @@ export default function ProfessionalDashboard() {
     completedParts: completedItems.length,
   };
 
+ const remainingSummary = useMemo(
+    () => ({
+      count: remainingItems.length,
+      totalQty: remainingItems.reduce((sum, item) => sum + (item.Total_Qty || 0), 0),
+      totalValue: remainingItems.reduce((sum, item) => sum + (item.Value || 0), 0),
+    }),
+    [remainingItems]
+  );
+
   const reportText = `BoM Transfer Report\n\n- Parts completed: ${summary.completedParts}/${summary.totalParts}\n- Completion rate: ${Math.round(
     (summary.completedParts / Math.max(summary.totalParts, 1)) * 100
   )}%\n- Value completed: ${formatCurrency(summary.completedValue)}\n- Remaining (excluding Not to Transfer): ${currentBomItems.length} parts\n- Delayed plans: ${delayedCount}\nGenerated on: ${format(new Date(), 'PPpp')}`;
@@ -448,98 +464,112 @@ export default function ProfessionalDashboard() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 xl:grid-cols-3 2xl:grid-cols-[1fr_1fr_1.35fr]">
-        <Card className={professionalPalette.surface}>
-          <CardHeader className="flex items-center justify-between">
-            <div>
-              <CardTitle>Completion distribution</CardTitle>
-              <CardDescription>Volume and value on independent axes (latest domestic buy date)</CardDescription>
-            </div>
-            <Badge variant="outline" className="text-xs">2025</Badge>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80">
-              <ChartContainer
-                config={{
-                  count: { label: 'Parts', color: 'hsl(215, 85%, 55%)' },
-                  value: { label: 'Value', color: 'hsl(158, 70%, 45%)' },
-                }}
-              >
-                <ResponsiveContainer>
-                  <ComposedChart data={completedChart}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis
-                      yAxisId="left"
-                      tickFormatter={formatCompactNumber}
-                      label={{ value: 'Parts', angle: -90, position: 'insideLeft' }}
-                    />
-                    <YAxis
-                      yAxisId="right"
-                      orientation="right"
-                      tickFormatter={formatCompactNumber}
-                      label={{ value: 'Total Value', angle: 90, position: 'insideRight' }}
-                    />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Legend />
-                    <Bar
-                      yAxisId="left"
-                      dataKey="count"
-                      name="Parts"
-                      barSize={26}
-                      fill="var(--color-count)"
-                      radius={[8, 8, 0, 0]}
-                    />
-                    <Bar
-                      yAxisId="right"
-                      dataKey="value"
-                      name="Value"
-                      barSize={26}
-                      fill="var(--color-value)"
-                      radius={[8, 8, 0, 0]}
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </ChartContainer>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="grid gap-6 xl:grid-cols-[1.25fr_1.05fr] 2xl:grid-cols-[1.35fr_1fr]">
+          <div className="space-y-6">
+            <Card className={professionalPalette.surface}>
+              <CardHeader className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Completion distribution</CardTitle>
+                  <CardDescription>Volume and value on independent axes (latest domestic buy date)</CardDescription>
+                </div>
+                <Badge variant="outline" className="text-xs">2025</Badge>
+              </CardHeader>
+              <CardContent>
+                <div className="h-80">
+                  <ChartContainer
+                    config={{
+                      count: { label: 'Parts', color: 'hsl(215, 85%, 55%)' },
+                      value: { label: 'Value', color: 'hsl(158, 70%, 45%)' },
+                    }}
+                  >
+                    <ResponsiveContainer>
+                      <ComposedChart data={completedChart}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="month" />
+                        <YAxis
+                          yAxisId="left"
+                          tickFormatter={formatCompactNumber}
+                          label={{ value: 'Parts', angle: -90, position: 'insideLeft' }}
+                        />
+                        <YAxis
+                          yAxisId="right"
+                          orientation="right"
+                          tickFormatter={formatCompactNumber}
+                          label={{ value: 'Total Value', angle: 90, position: 'insideRight' }}
+                        />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Legend />
+                        <Bar
+                          yAxisId="left"
+                          dataKey="count"
+                          name="Parts"
+                          barSize={26}
+                          fill="var(--color-count)"
+                          radius={[8, 8, 0, 0]}
+                        />
+                        <Bar
+                          yAxisId="right"
+                          dataKey="value"
+                          name="Value"
+                          barSize={26}
+                          fill="var(--color-value)"
+                          radius={[8, 8, 0, 0]}
+                        />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </ChartContainer>
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className={professionalPalette.surface}>
-          <CardHeader>
-            <CardTitle>2025 total quantity decline</CardTitle>
-            <CardDescription>Cumulative remaining parts as completions land</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80">
-              <ChartContainer
-                config={{
-                  remainingAfter: { label: 'Remaining after month', color: 'hsl(221, 83%, 53%)' },
-                }}
-              >
-                <ResponsiveContainer>
-                  <ComposedChart data={completedDecline}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis tickFormatter={formatCompactNumber} label={{ value: 'Parts', angle: -90, position: 'insideLeft' }} />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Legend />
-                    <Line
-                      type="monotone"
-                      dataKey="remainingAfter"
-                      name="Remaining parts"
-                      stroke="var(--color-remainingAfter)"
-                      strokeWidth={3}
-                      dot={{ r: 3 }}
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </ChartContainer>
-            </div>
-          </CardContent>
-        </Card>
+            <Card className={professionalPalette.surface}>
+              <CardHeader>
+                <CardTitle>2025 total quantity decline</CardTitle>
+                <CardDescription>
+                  Baseline = AU hold + Not Start + In Progress + Completed; month-by-month completions reduce it
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="h-80">
+                <ChartContainer
+                  config={{
+                    remaining: { label: 'Start-of-month total', color: 'hsl(215, 85%, 55%)' },
+                    remainingAfter: { label: 'Remaining after month', color: 'hsl(221, 83%, 53%)' },
+                  }}
+                >
+                    <ResponsiveContainer>
+                      <ComposedChart data={completedDecline}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="month" />
+                        <YAxis tickFormatter={formatCompactNumber} label={{ value: 'Parts', angle: -90, position: 'insideLeft' }} />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Legend />
+                        <Line
+                          type="monotone"
+                          dataKey="remaining"
+                          name="Start-of-month total"
+                          stroke="var(--color-count)"
+                          strokeWidth={3}
+                          dot={{ r: 4 }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="remainingAfter"
+                          name="Remaining after completions"
+                          stroke="var(--color-value)"
+                          strokeWidth={3}
+                          dot={{ r: 3 }}
+                        />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </ChartContainer>
+                </div>
+                <p className="text-xs text-slate-500">Start-of-year baseline includes AU holds, Not Start, In Progress, and Completed parts.</p>
+              </CardContent>
+            </Card>
+          </div>
 
-        <Card className={`${professionalPalette.surface} xl:col-span-2`}>
+          <Card className={`${professionalPalette.surface} xl:col-span-1`}>
           <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle>Completed parts</CardTitle>
@@ -897,6 +927,27 @@ export default function ProfessionalDashboard() {
         icon={Factory}
       />
 
+      <div className="grid gap-3 md:grid-cols-3">
+        <Card className="border-slate-200 bg-white/80">
+          <CardContent className="p-4">
+            <div className="text-xs uppercase tracking-wide text-slate-500">AU holds</div>
+            <div className="text-2xl font-semibold text-slate-900">{remainingSummary.count}</div>
+          </CardContent>
+        </Card>
+        <Card className="border-slate-200 bg-white/80">
+          <CardContent className="p-4">
+            <div className="text-xs uppercase tracking-wide text-slate-500">Total quantity</div>
+            <div className="text-2xl font-semibold text-slate-900">{remainingSummary.totalQty}</div>
+          </CardContent>
+        </Card>
+        <Card className="border-slate-200 bg-white/80">
+          <CardContent className="p-4">
+            <div className="text-xs uppercase tracking-wide text-slate-500">Total value</div>
+            <div className="text-2xl font-semibold text-indigo-600">{formatCurrency(remainingSummary.totalValue)}</div>
+          </CardContent>
+        </Card>
+      </div>
+
       <Card className={professionalPalette.surface}>
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -956,93 +1007,7 @@ export default function ProfessionalDashboard() {
                         <Input
                           defaultValue={item.Brand}
                           placeholder="Brand"
-                          onBlur={async (e) => {
-                            await updateNotToTransferDetails(
-                              item.Component_Material,
-                              item.NotToTransferReason || '',
-                              e.target.value
-                            );
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
-                      <StatusButton
-                        currentStatus={(item.Transfer_Status || 'Not Start') as TransferStatus}
-                        onStatusChange={(status) => updateStatus(item.Component_Material, status)}
-                      />
-                      <span className="text-slate-400">Recorded in Firebase</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {remainingItems.length === 0 && (
-                <div className="p-4 text-sm text-slate-500">No Not to Transfer items remain in AU.</div>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-
-  const renderReport = () => (
-    <div className="space-y-6">
-      <SectionHeader
-        title="Report"
-        description="One-click snapshot across completion, value, and risk"
-        icon={FilePieChart}
-      />
-
-      <Card className={professionalPalette.surface}>
-        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle>Stage overview</CardTitle>
-            <CardDescription>Completion, value, delays, and current BoM snapshot</CardDescription>
-          </div>
-          <Button
-            onClick={() => {
-              const blob = new Blob([reportText], { type: 'text/plain' });
-              const url = URL.createObjectURL(blob);
-              const link = document.createElement('a');
-              link.href = url;
-              link.download = 'bom-transfer-report.txt';
-              link.click();
-              URL.revokeObjectURL(url);
-            }}
-            variant="outline"
-            className="gap-2"
-          >
-            <ClipboardList className="h-4 w-4" />
-            Export report
-          </Button>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <div className="text-xs text-slate-500">Completion</div>
-              <div className="text-2xl font-semibold text-slate-900">
-                {Math.round((summary.completedParts / Math.max(summary.totalParts, 1)) * 100)}%
-              </div>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <div className="text-xs text-slate-500">Value completed</div>
-              <div className="text-2xl font-semibold text-emerald-600">
-                {formatCurrency(summary.completedValue)}
-              </div>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <div className="text-xs text-slate-500">Past-due plans</div>
-              <div className="text-2xl font-semibold text-amber-600">{delayedCount}</div>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <div className="text-xs text-slate-500">Current BoM (Not Start)</div>
-              <div className="text-2xl font-semibold text-indigo-600">{currentBomItems.length}</div>
-            </div>
-          </div>
-          <Separator />
-          <pre className="whitespace-pre-wrap rounded-lg bg-slate-900/90 p-4 text-sm text-slate-50">
-            {reportText}
+@@ -847,52 +1116,52 @@ export default function ProfessionalDashboard() {
           </pre>
         </CardContent>
       </Card>
