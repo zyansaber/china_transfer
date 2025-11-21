@@ -139,6 +139,7 @@ export default function ProfessionalDashboard() {
     updateStatus,
     updateExpectedCompletion,
     updateNotToTransferDetails,
+    updatePlannedStart,
   } = useBomData();
   const [activeTab, setActiveTab] = useState<TabKey>('completed');
 
@@ -221,34 +222,45 @@ export default function ProfessionalDashboard() {
     return Array.from(monthMap.values()).sort((a, b) => a.sortValue - b.sortValue);
   }, [planItems]);
 
-  const currentReduction = useMemo(() => {
-    const startTotal = currentBomItems.filter(
-      (item) => (item.Transfer_Status || 'Not Start') !== 'Finished'
-    ).length;
+  const plannedStartSchedule = useMemo(() => {
+    const monthMap = new Map<string, { month: string; sortValue: number; starts: number }>();
 
-    const orderedMonths = planForecast.length
-      ? planForecast
+    currentBomItems.forEach((item) => {
+      const planned = parseDate(item.Planned_Start);
+      if (!planned) return;
+      const key = format(planned, 'yyyy-MM');
+      const entry = monthMap.get(key) ?? {
+        month: format(planned, 'MMM'),
+        sortValue: +startOfMonth(planned),
+        starts: 0,
+      };
+      entry.starts += 1;
+      monthMap.set(key, entry);
+    });
+
+    return Array.from(monthMap.values()).sort((a, b) => a.sortValue - b.sortValue);
+  }, [currentBomItems]);
+
+  const plannedStartTrajectory = useMemo(() => {
+    let remaining = currentBomItems.length;
+
+    const ordered = plannedStartSchedule.length
+      ? plannedStartSchedule
       : [
           {
             month: format(new Date(), 'MMM'),
             sortValue: +startOfMonth(new Date()),
-            parts: 0,
-            value: 0,
-            delayedParts: 0,
+            starts: 0,
           },
         ];
 
-    let remaining = startTotal;
-    const result: { month: string; remaining: number; completed: number }[] = [];
-
-    orderedMonths.forEach((entry) => {
-      const completed = Math.min(entry.parts, Math.max(remaining, 0));
-      remaining = Math.max(remaining - entry.parts, 0);
-      result.push({ month: entry.month, remaining, completed });
+    return ordered.map((entry) => {
+      const remainingAfterStart = Math.max(remaining - entry.starts, 0);
+      const chartRow = { month: entry.month, plannedStarts: entry.starts, remaining: remainingAfterStart };
+      remaining = remainingAfterStart;
+      return chartRow;
     });
-
-    return result;
-  }, [currentBomItems, planForecast]);
+  }, [currentBomItems.length, plannedStartSchedule]);
 
   const professionalPalette = {
     surface: 'bg-white/90 backdrop-blur-sm border border-slate-200 shadow-sm',
@@ -587,57 +599,54 @@ export default function ProfessionalDashboard() {
 
       <Card className={professionalPalette.surface}>
         <CardHeader>
-          <CardTitle>Monthly reduction</CardTitle>
-          <CardDescription>Projected drawdown based on expected completions</CardDescription>
+          <CardTitle>Current BoM schedule</CardTitle>
+          <CardDescription>Plan start months and remaining inventory inside one view</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="h-72">
-            <ChartContainer
-              config={{
-                remaining: { label: 'Remaining', color: 'hsl(215, 80%, 50%)' },
-                completed: { label: 'Completed this month', color: 'hsl(142, 71%, 45%)' },
-              }}
-            >
-              <ResponsiveContainer>
-                <ComposedChart data={currentReduction}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis tickFormatter={formatCompactNumber} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="remaining"
-                    name="Remaining"
-                    stroke="var(--color-remaining)"
-                    strokeWidth={3}
-                    dot={{ r: 3 }}
-                  />
-                  <Bar
-                    dataKey="completed"
-                    name="Completed"
-                    fill="var(--color-completed)"
-                    radius={[6, 6, 0, 0]}
-                  />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className={professionalPalette.surface}>
-        <CardHeader>
-          <CardTitle>Current BoM detail</CardTitle>
-          <CardDescription>Not Start parts only, with imagery and value</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-xl border border-slate-200 overflow-hidden">
+        <CardContent className="space-y-4">
+          <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
+            <div className="border-b border-slate-200 bg-slate-50/70 px-4 py-3">
+              <p className="text-sm font-medium text-slate-800">Planned start trajectory</p>
+              <p className="text-xs text-slate-500">Record start dates below; chart stays aligned with the table frame</p>
+            </div>
+            <div className="h-64 px-4 pt-4">
+              <ChartContainer
+                config={{
+                  remaining: { label: 'Remaining after starts', color: 'hsl(215, 80%, 50%)' },
+                  plannedStarts: { label: 'Planned starts', color: 'hsl(142, 71%, 45%)' },
+                }}
+              >
+                <ResponsiveContainer>
+                  <ComposedChart data={plannedStartTrajectory}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis tickFormatter={formatCompactNumber} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="remaining"
+                      name="Remaining after starts"
+                      stroke="var(--color-remaining)"
+                      strokeWidth={3}
+                      dot={{ r: 3 }}
+                    />
+                    <Bar
+                      dataKey="plannedStarts"
+                      name="Planned starts"
+                      fill="var(--color-plannedStarts)"
+                      radius={[6, 6, 0, 0]}
+                      barSize={32}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            </div>
+            <Separator />
             <div className="divide-y divide-slate-200">
               {currentBomItems.map((item) => (
                 <div
                   key={item.Component_Material}
-                  className="grid gap-4 p-4 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] md:items-center"
+                  className="grid gap-4 p-4 md:grid-cols-[minmax(0,1.6fr)_minmax(0,1.1fr)] md:items-center"
                 >
                   <div className="flex items-start gap-3">
                     <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
@@ -657,11 +666,22 @@ export default function ProfessionalDashboard() {
                   </div>
                   <div className="grid gap-2 text-sm text-slate-600 md:grid-cols-3 md:items-center md:justify-items-end">
                     <span className="font-semibold text-slate-900 md:text-right">{formatCurrency(item.Value || 0)}</span>
-                    <span className="text-xs text-slate-500 md:text-right">Kanban: {item.Kanban_Flag || '-'}</span>
-                    <StatusButton
-                      currentStatus={(item.Transfer_Status || 'Not Start') as TransferStatus}
-                      onStatusChange={(status) => updateStatus(item.Component_Material, status)}
-                    />
+                    <div className="w-full md:justify-self-end">
+                      <Label className="mb-1 block text-xs text-slate-500">Planned start</Label>
+                      <DateSelector
+                        value={item.Planned_Start}
+                        onChange={async (value) => {
+                          await updatePlannedStart(item.Component_Material, value);
+                        }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-end gap-2 text-xs text-slate-500 md:justify-self-end">
+                      <span className="hidden md:inline">Kanban: {item.Kanban_Flag || '-'}</span>
+                      <StatusButton
+                        currentStatus={(item.Transfer_Status || 'Not Start') as TransferStatus}
+                        onStatusChange={(status) => updateStatus(item.Component_Material, status)}
+                      />
+                    </div>
                   </div>
                 </div>
               ))}
