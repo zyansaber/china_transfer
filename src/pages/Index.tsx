@@ -889,6 +889,7 @@ export default function ProfessionalDashboard() {
         </CardContent>
       </Card>
     </div>
+ );
 
   const renderCurrent = () => (
     <div className="space-y-6">
