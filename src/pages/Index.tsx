@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { format, isBefore, isValid, parseISO, startOfMonth } from 'date-fns';
+import { addMonths, format, isBefore, isValid, parseISO, startOfMonth } from 'date-fns';
 import {
   Activity,
   ArrowUpDown,
@@ -35,8 +35,8 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { StatusButton } from '@/components/StatusButton';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
@@ -131,6 +131,17 @@ const DateSelector = ({
   onChange: (newDate: string | null) => void;
 }) => {
   const parsed = value ? parseDate(value) : null;
+  const monthOptions = useMemo(() => {
+    const months: { label: string; value: string }[] = [];
+    const start = startOfMonth(new Date(new Date().getFullYear() - 1, 0, 1));
+
+    for (let i = 0; i < 24; i += 1) {
+      const month = addMonths(start, i);
+      months.push({ label: format(month, 'MMM yyyy'), value: month.toISOString() });
+    }
+
+    return months;
+  }, []);
 
   const handleSelect = (date?: Date) => {
     if (!date) {
@@ -141,30 +152,33 @@ const DateSelector = ({
     const monthStart = startOfMonth(date);
     onChange(monthStart.toISOString());
   };
-  
+
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          className={cn(
-            'w-full justify-start text-left font-normal',
-            !value && 'text-muted-foreground'
-          )}
-        >
-          <CalendarIcon className="mr-2 h-4 w-4" />
-          {parsed ? format(parsed, 'MMM yyyy') : 'Select month'}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="p-0" align="start">
-        <Calendar
-          mode="single"
-          selected={parsed ?? undefined}
-          onSelect={handleSelect}
-          initialFocus
-        />
-      </PopoverContent>
-    </Popover>
+    <Select
+      value={parsed ? parsed.toISOString() : ''}
+      onValueChange={(newValue) => {
+        if (!newValue) {
+          onChange(null);
+          return;
+        }
+        handleSelect(new Date(newValue));
+      }}
+    >
+      <SelectTrigger className="w-full justify-between text-sm">
+        <div className="flex items-center gap-2">
+          <CalendarIcon className="h-4 w-4 text-slate-500" />
+          <SelectValue placeholder="Select month" />
+        </div>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="">Clear</SelectItem>
+        {monthOptions.map((month) => (
+          <SelectItem key={month.value} value={month.value}>
+            {month.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 };
 
@@ -661,7 +675,7 @@ export default function ProfessionalDashboard() {
             <SortControls title="Sort completed" />
           </div>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 text-[15px]">
           <ScrollArea className="h-[620px]">
             <div className="divide-y divide-slate-200">
               {filteredCompleted.map((item) => {
@@ -772,6 +786,7 @@ export default function ProfessionalDashboard() {
                   name="Parts"
                   stackId="a"
                   fill="var(--color-parts)"
+                  barSize={26}
                   radius={[8, 8, 0, 0]}
                 />
                 <Bar
@@ -781,6 +796,7 @@ export default function ProfessionalDashboard() {
                   stackId="a"
                   fill="var(--color-delayed)"
                   radius={[8, 8, 0, 0]}
+                  barSize={26}
                 />
                 <Line
                   type="monotone"
@@ -814,7 +830,7 @@ export default function ProfessionalDashboard() {
             <SortControls title="Sort in progress" />
           </div>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 text-[15px]">
           <ScrollArea className="h-[620px]">
             <div className="divide-y divide-slate-200">
               {filteredPlan.map((item) => {
@@ -823,7 +839,7 @@ export default function ProfessionalDashboard() {
                   return (
                     <div
                       key={item.Component_Material}
-                      className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1.45fr)] lg:items-start"
+                      className="grid gap-5 p-4 lg:grid-cols-[1.5fr_1.05fr_1.2fr_0.95fr] lg:items-center"
                     >
                       <div className="flex items-start gap-3">
                         <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
@@ -842,37 +858,35 @@ export default function ProfessionalDashboard() {
                           </div>
                           <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
                         </div>
-                      </div>
-                    <div className="grid gap-4 text-sm text-slate-600 md:grid-cols-4 md:items-center">
-                      <div className="flex flex-col text-right md:items-end">
+                        </div>
+                      <div className="flex flex-col gap-1 text-right text-slate-700 lg:items-end">
                         <span className="text-xs text-slate-500">Total value</span>
-                          <span className="text-base font-semibold text-slate-900">{formatCurrency(item.Value || 0)}</span>
-                        </div>
-                        <div className="flex flex-col text-xs text-slate-500 md:items-end">
-                          <span className="uppercase tracking-wide">Unit price</span>
-                          <span className="text-base font-semibold text-slate-900">{formatCurrency(item.Standard_Price || 0)}</span>
-                          <span className="text-[11px] text-slate-500">Qty: {item.Total_Qty || 0}</span>
-                        </div>
-                        <div className="md:col-span-2 md:w-full">
-                          <Label className="text-xs text-slate-500">Expected completion</Label>
-                          <DateSelector
-                            value={item.Expected_Completion}
-                            onChange={async (newDate) => {
-                              await updateExpectedCompletion(item.Component_Material, newDate);
-                            }}
-                          />
-                          {isDelayed && <p className="mt-1 text-xs text-amber-600">Past due</p>}
-                        </div>
-                        <div className="flex flex-col items-start gap-2 md:items-end">
-                          <span className="text-xs text-slate-500">Latest buy: {item.Latest_Component_Date || 'N/A'}</span>
-                          <StatusButton
-                            currentStatus={(item.Transfer_Status || 'Not Start') as TransferStatus}
-                            onStatusChange={(status) => updateStatus(item.Component_Material, status)}
-                          />
-                        </div>
+                        <span className="font-semibold text-slate-900">{formatCurrency(item.Value || 0)}</span>
+                        <span className="text-[12px] text-slate-500">Qty: {item.Total_Qty || 0}</span>
                       </div>
-                  </div>
-                );
+                      <div className="flex flex-col gap-1 text-right text-slate-700 lg:items-end">
+                        <span className="text-xs uppercase tracking-wide text-slate-500">Unit price</span>
+                        <span className="font-semibold text-slate-900">{formatCurrency(item.Standard_Price || 0)}</span>
+                      </div>
+                      <div className="flex flex-col gap-2 text-slate-700">
+                        <Label className="text-xs text-slate-500">Expected completion</Label>
+                        <DateSelector
+                          value={item.Expected_Completion}
+                          onChange={async (newDate) => {
+                            await updateExpectedCompletion(item.Component_Material, newDate);
+                          }}
+                        />
+                        {isDelayed && <p className="text-xs text-amber-600">Past due</p>}
+                      </div>
+                      <div className="flex flex-col items-start gap-2 text-slate-700 lg:items-end">
+                        <span className="text-xs text-slate-500">Latest buy: {item.Latest_Component_Date || 'N/A'}</span>
+                        <StatusButton
+                          currentStatus={(item.Transfer_Status || 'Not Start') as TransferStatus}
+                          onStatusChange={(status) => updateStatus(item.Component_Material, status)}
+                        />
+                      </div>
+                    </div>
+                  );
               })}
               {filteredPlan.length === 0 && (
                 <div className="p-4 text-sm text-slate-500">No items are in progress for this search.</div>
@@ -924,7 +938,7 @@ export default function ProfessionalDashboard() {
                   name="Planned starts"
                   fill="var(--color-plannedStarts)"
                   radius={[6, 6, 0, 0]}
-                  barSize={32}
+                  barSize={26}
                 />
               </ComposedChart>
             </ChartContainer>
@@ -949,13 +963,13 @@ export default function ProfessionalDashboard() {
             <SortControls title="Sort Not Start" />
           </div>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 text-[15px]">
           <ScrollArea className="h-[620px]">
             <div className="divide-y divide-slate-200">
               {filteredCurrent.map((item) => (
                 <div
                   key={item.Component_Material}
-                  className="grid gap-4 p-4 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1.5fr)] md:items-center"
+                  className="grid gap-5 p-4 lg:grid-cols-[1.5fr_1.05fr_1.15fr_0.85fr] lg:items-center"
                 >
                   <div className="flex items-start gap-3">
                     <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
@@ -973,32 +987,30 @@ export default function ProfessionalDashboard() {
                       <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
                     </div>
                   </div>
-                  <div className="grid gap-4 text-sm text-slate-600 md:grid-cols-4 md:items-center">
-                    <div className="flex flex-col text-right md:items-end">
-                      <span className="text-xs text-slate-500">Total value</span>
-                      <span className="font-semibold text-slate-900">{formatCurrency(item.Value || 0)}</span>
-                    </div>
-                    <div className="flex flex-col text-right md:items-end">
-                      <span className="text-xs text-slate-500">Unit price</span>
-                      <span className="font-semibold text-slate-900">{formatCurrency(item.Standard_Price || 0)}</span>
-                      <span className="text-[11px] text-slate-500">Qty: {item.Total_Qty || 0}</span>
-                    </div>
-                    <div className="w-full md:justify-self-end">
-                      <Label className="mb-1 block text-xs text-slate-500">Planned start</Label>
-                      <DateSelector
-                        value={item.Planned_Start}
-                        onChange={async (value) => {
-                          await updatePlannedStart(item.Component_Material, value);
-                        }}
-                      />
-                    </div>
-                    <div className="flex items-center justify-end gap-2 text-xs text-slate-500 md:justify-self-end">
-                      <span className="hidden md:inline">Kanban: {item.Kanban_Flag || '-'}</span>
-                      <StatusButton
-                        currentStatus={(item.Transfer_Status || 'Not Start') as TransferStatus}
-                        onStatusChange={(status) => updateStatus(item.Component_Material, status)}
-                      />
-                    </div>
+                  <div className="flex flex-col gap-1 text-right text-slate-700 lg:items-end">
+                    <span className="text-xs text-slate-500">Total value</span>
+                    <span className="font-semibold text-slate-900">{formatCurrency(item.Value || 0)}</span>
+                  </div>
+                  <div className="flex flex-col gap-1 text-right text-slate-700 lg:items-end">
+                    <span className="text-xs text-slate-500">Unit price</span>
+                    <span className="font-semibold text-slate-900">{formatCurrency(item.Standard_Price || 0)}</span>
+                    <span className="text-[12px] text-slate-500">Qty: {item.Total_Qty || 0}</span>
+                  </div>
+                  <div className="w-full">
+                    <Label className="mb-1 block text-xs text-slate-500">Planned start</Label>
+                    <DateSelector
+                      value={item.Planned_Start}
+                      onChange={async (value) => {
+                        await updatePlannedStart(item.Component_Material, value);
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-end gap-2 text-xs text-slate-600 lg:justify-self-end">
+                    <span className="hidden lg:inline">Kanban: {item.Kanban_Flag || '-'}</span>
+                    <StatusButton
+                      currentStatus={(item.Transfer_Status || 'Not Start') as TransferStatus}
+                      onStatusChange={(status) => updateStatus(item.Component_Material, status)}
+                    />
                   </div>
                 </div>
               ))}
@@ -1037,13 +1049,13 @@ export default function ProfessionalDashboard() {
             <SortControls title="Sort holds" />
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="text-[15px]">
           <div className="rounded-xl border border-slate-200 overflow-hidden">
             <div className="divide-y divide-slate-200">
               {filteredRemaining.map((item) => (
                 <div
                   key={item.Component_Material}
-                  className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1.1fr)] lg:items-start"
+                  className="grid gap-5 p-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1.1fr)] lg:items-start"
                 >
                   <div className="flex items-start gap-3">
                     <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
