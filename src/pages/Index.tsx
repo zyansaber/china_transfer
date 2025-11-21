@@ -335,7 +335,7 @@ export default function ProfessionalDashboard() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+      <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-[1.2fr_1fr]">
         <Card className={professionalPalette.surface}>
           <CardHeader className="flex items-center justify-between">
             <div>
@@ -398,7 +398,7 @@ export default function ProfessionalDashboard() {
             <CardDescription>Latest domestic purchase month, value, and imagery</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
-            <ScrollArea className="h-[520px]">
+            <ScrollArea className="h-[620px]">
               <div className="divide-y divide-slate-200">
                 {completedItems.map((item) => {
                   const lastBuy = parseDate(item.Latest_Component_Date);
@@ -423,7 +423,7 @@ export default function ProfessionalDashboard() {
                           <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
                         </div>
                       </div>
-                      <div className="grid gap-2 text-sm text-slate-600 md:grid-cols-3 md:items-center md:justify-items-end">
+                      <div className="grid gap-4 text-sm text-slate-600 md:grid-cols-3 md:items-center">
                         <span className="font-semibold text-slate-900 md:text-right">{formatCurrency(item.Value || 0)}</span>
                         <span className="md:text-right">{lastBuy ? format(lastBuy, 'MMM yyyy') : 'N/A'}</span>
                         <span className="text-xs text-slate-500 md:text-right">
@@ -471,7 +471,7 @@ export default function ProfessionalDashboard() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+      <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-[1.2fr_1fr]">
         <Card className={professionalPalette.surface}>
           <CardHeader>
             <CardTitle>Monthly forecast</CardTitle>
@@ -532,7 +532,7 @@ export default function ProfessionalDashboard() {
             <CardDescription>Expected completion dates saved to Firebase</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
-            <ScrollArea className="h-[520px]">
+            <ScrollArea className="h-[620px]">
               <div className="divide-y divide-slate-200">
                 {planItems.map((item) => {
                   const expected = parseDate(item.Expected_Completion);
@@ -560,7 +560,7 @@ export default function ProfessionalDashboard() {
                           <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
                         </div>
                       </div>
-                      <div className="grid gap-3 text-sm text-slate-600 md:grid-cols-4 md:items-center md:justify-items-end">
+                      <div className="grid gap-4 text-sm text-slate-600 md:grid-cols-4 md:items-start">
                         <div className="flex flex-col text-xs text-slate-500 md:items-end">
                           <span className="uppercase tracking-wide">Value</span>
                           <span className="text-base font-semibold text-slate-900">{formatCurrency(item.Value || 0)}</span>
@@ -605,7 +605,7 @@ export default function ProfessionalDashboard() {
         icon={Layers}
       />
 
-      <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+      <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-[1.15fr_1fr]">
         <Card className={professionalPalette.surface}>
           <CardHeader>
             <CardTitle>Current BoM schedule</CardTitle>
@@ -654,7 +654,7 @@ export default function ProfessionalDashboard() {
             <CardDescription>Record planned starts while keeping the chart locked beside the table</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
-            <ScrollArea className="h-[520px]">
+            <ScrollArea className="h-[620px]">
               <div className="divide-y divide-slate-200">
                 {currentBomItems.map((item) => (
                   <div
@@ -677,7 +677,7 @@ export default function ProfessionalDashboard() {
                         <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
                       </div>
                     </div>
-                    <div className="grid gap-2 text-sm text-slate-600 md:grid-cols-3 md:items-center md:justify-items-end">
+                    <div className="grid gap-4 text-sm text-slate-600 md:grid-cols-3 md:items-center">
                       <span className="font-semibold text-slate-900 md:text-right">{formatCurrency(item.Value || 0)}</span>
                       <div className="w-full md:justify-self-end">
                         <Label className="mb-1 block text-xs text-slate-500">Planned start</Label>
@@ -883,7 +883,7 @@ export default function ProfessionalDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-8 lg:flex-row lg:py-12">
+      <div className="mx-auto flex w-full max-w-none flex-col gap-6 px-6 py-8 lg:flex-row lg:py-12 xl:px-10">
         <aside className="w-full rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm lg:w-64">
           <div className="flex items-center gap-2 pb-4">
             <Sparkles className="h-5 w-5 text-indigo-600" />
