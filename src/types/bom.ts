@@ -14,6 +14,7 @@ export interface BomItem {
   Expected_Completion?: string;
   NotToTransferReason?: string;
   Brand?: string;
+  Planned_Start?: string;
 }
 
 export interface BomSummary {
