@@ -106,7 +106,7 @@ export const useBomData = (): UseBomDataResult => {
     }
   };
 
- const updatePlannedStart = async (componentMaterial: string, dateISO: string | null): Promise<boolean> => {
+  const updatePlannedStart = async (componentMaterial: string, dateISO: string | null): Promise<boolean> => {
     try {
       const updates = {
         [`bom_summary/${componentMaterial}/Planned_Start`]: dateISO || null,
@@ -119,7 +119,6 @@ export const useBomData = (): UseBomDataResult => {
       return false;
     }
   };
-
 
   const updateNotToTransferDetails = async (
     componentMaterial: string,
@@ -147,6 +146,7 @@ export const useBomData = (): UseBomDataResult => {
     updateStatus,
     updateExpectedCompletion,
     updateNotToTransferDetails,
+    updatePlannedStart,
   };
 };
 
