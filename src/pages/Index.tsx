@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { addMonths, format, isBefore, isValid, parseISO, startOfMonth } from 'date-fns';
+import { format, isBefore, isValid, parseISO, startOfMonth } from 'date-fns';
 import {
   Activity,
   ArrowUpDown,
@@ -21,7 +21,6 @@ import {
   ComposedChart,
   Legend,
   Line,
-  ReferenceLine,
   XAxis,
   YAxis,
 } from 'recharts';
@@ -36,7 +35,8 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { StatusButton } from '@/components/StatusButton';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
@@ -123,11 +123,6 @@ const SectionHeader = ({ title, description, icon: Icon }: { title: string; desc
   </div>
 );
 
-const monthOptions = Array.from({ length: 24 }, (_, index) => {
-  const base = startOfMonth(addMonths(new Date(), index - 12));
-  return { value: base.toISOString(), label: format(base, 'MMM yyyy') };
-});
-
 const DateSelector = ({
   value,
   onChange,
@@ -137,25 +132,39 @@ const DateSelector = ({
 }) => {
   const parsed = value ? parseDate(value) : null;
 
+  const handleSelect = (date?: Date) => {
+    if (!date) {
+      onChange(null);
+      return;
+    }
+
+    const monthStart = startOfMonth(date);
+    onChange(monthStart.toISOString());
+  };
+  
   return (
-    <Select value={parsed?.toISOString() ?? ''} onValueChange={(newValue) => onChange(newValue || null)}>
-      <SelectTrigger className="w-full justify-start text-left font-normal">
-        <div className="flex items-center gap-2">
-          <CalendarIcon className="h-4 w-4 text-slate-500" />
-          <SelectValue placeholder="Select month" aria-label={parsed ? format(parsed, 'MMM yyyy') : 'Select month'}>
-            {parsed ? format(parsed, 'MMM yyyy') : 'Select month'}
-          </SelectValue>
-        </div>
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="">Clear</SelectItem>
-        {monthOptions.map((option) => (
-          <SelectItem key={option.value} value={option.value} className="text-sm">
-            {option.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className={cn(
+            'w-full justify-start text-left font-normal',
+            !value && 'text-muted-foreground'
+          )}
+        >
+          <CalendarIcon className="mr-2 h-4 w-4" />
+          {parsed ? format(parsed, 'MMM yyyy') : 'Select month'}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={parsed ?? undefined}
+          onSelect={handleSelect}
+          initialFocus
+        />
+      </PopoverContent>
+    </Popover>
   );
 };
 
@@ -245,7 +254,6 @@ export default function ProfessionalDashboard() {
     () => filterByQuery(sortedRemaining, remainingSearch),
     [sortedRemaining, remainingSearch]
   );
-  const remainingInAuStandard = remainingItems.length;
   const completedSuggestions = useMemo(
     () => buildSearchSuggestions(sortedCompleted, completedSearch),
     [sortedCompleted, completedSearch]
@@ -259,7 +267,7 @@ export default function ProfessionalDashboard() {
     () => buildSearchSuggestions(sortedRemaining, remainingSearch),
     [sortedRemaining, remainingSearch]
   );
-  const totalPartsBaseline = bomItems.filter((item) => `${item.Transfer_Status}` !== 'Temporary Usage').length;
+  const totalPartsBaseline = bomItems.length;
 
   const SortControls = ({ title }: { title?: string }) => {
     const sortOptions: { key: typeof sortField; label: string }[] = [
@@ -621,12 +629,6 @@ export default function ProfessionalDashboard() {
                   <YAxis tickFormatter={formatCompactNumber} label={{ value: 'Parts', angle: -90, position: 'insideLeft' }} />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <Legend />
-                  <ReferenceLine
-                    y={remainingInAuStandard}
-                    stroke="hsl(24, 90%, 55%)"
-                    strokeDasharray="6 6"
-                    label={{ value: 'Remaining in AU', position: 'right', fill: 'hsl(24, 90%, 35%)' }}
-                  />
                   <Line
                     type="monotone"
                     dataKey="remainingAfter"
@@ -667,7 +669,7 @@ export default function ProfessionalDashboard() {
                 return (
                   <div
                     key={item.Component_Material}
-                    className="grid gap-4 p-4 text-[15px] leading-tight md:grid-cols-[minmax(0,1.35fr)_minmax(0,1.5fr)] md:items-center"
+                    className="grid gap-4 p-4 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1.5fr)] md:items-center"
                     >
                       <div className="flex items-start gap-3">
                         <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
@@ -816,59 +818,59 @@ export default function ProfessionalDashboard() {
           <ScrollArea className="h-[620px]">
             <div className="divide-y divide-slate-200">
               {filteredPlan.map((item) => {
-                const expected = parseDate(item.Expected_Completion);
-                const isDelayed = expected ? isBefore(expected, new Date()) : false;
-                return (
-                  <div
-                    key={item.Component_Material}
-                    className="flex flex-col gap-4 p-4 text-[15px] leading-tight lg:flex-row lg:items-center lg:gap-6"
-                  >
-                    <div className="flex min-w-[260px] items-center gap-3">
-                      <div className="h-14 w-14 overflow-hidden rounded-md bg-slate-100">
-                        {item.imageUrl ? (
-                          <img src={item.imageUrl} alt={item.Component_Material} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">No image</div>
-                        )}
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-semibold text-slate-900">{item.Component_Material}</p>
-                          <Badge variant="outline" className={isDelayed ? 'border-amber-300 text-amber-700' : ''}>
-                            In Progress
-                          </Badge>
+                  const expected = parseDate(item.Expected_Completion);
+                  const isDelayed = expected ? isBefore(expected, new Date()) : false;
+                  return (
+                    <div
+                      key={item.Component_Material}
+                      className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1.45fr)] lg:items-start"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
+                          {item.imageUrl ? (
+                            <img src={item.imageUrl} alt={item.Component_Material} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">No image</div>
+                          )}
                         </div>
-                        <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold text-slate-900">{item.Component_Material}</p>
+                            <Badge variant="outline" className={isDelayed ? 'border-amber-300 text-amber-700' : ''}>
+                              In Progress
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex flex-1 flex-wrap items-center gap-6 text-[15px] text-slate-700">
-                      <div className="flex min-w-[140px] flex-col text-right lg:items-end">
+                    <div className="grid gap-4 text-sm text-slate-600 md:grid-cols-4 md:items-center">
+                      <div className="flex flex-col text-right md:items-end">
                         <span className="text-xs text-slate-500">Total value</span>
-                        <span className="text-base font-semibold text-slate-900">{formatCurrency(item.Value || 0)}</span>
+                          <span className="text-base font-semibold text-slate-900">{formatCurrency(item.Value || 0)}</span>
+                        </div>
+                        <div className="flex flex-col text-xs text-slate-500 md:items-end">
+                          <span className="uppercase tracking-wide">Unit price</span>
+                          <span className="text-base font-semibold text-slate-900">{formatCurrency(item.Standard_Price || 0)}</span>
+                          <span className="text-[11px] text-slate-500">Qty: {item.Total_Qty || 0}</span>
+                        </div>
+                        <div className="md:col-span-2 md:w-full">
+                          <Label className="text-xs text-slate-500">Expected completion</Label>
+                          <DateSelector
+                            value={item.Expected_Completion}
+                            onChange={async (newDate) => {
+                              await updateExpectedCompletion(item.Component_Material, newDate);
+                            }}
+                          />
+                          {isDelayed && <p className="mt-1 text-xs text-amber-600">Past due</p>}
+                        </div>
+                        <div className="flex flex-col items-start gap-2 md:items-end">
+                          <span className="text-xs text-slate-500">Latest buy: {item.Latest_Component_Date || 'N/A'}</span>
+                          <StatusButton
+                            currentStatus={(item.Transfer_Status || 'Not Start') as TransferStatus}
+                            onStatusChange={(status) => updateStatus(item.Component_Material, status)}
+                          />
+                        </div>
                       </div>
-                      <div className="flex min-w-[140px] flex-col text-right lg:items-end">
-                        <span className="text-xs uppercase tracking-wide text-slate-500">Unit price</span>
-                        <span className="text-base font-semibold text-slate-900">{formatCurrency(item.Standard_Price || 0)}</span>
-                        <span className="text-[12px] text-slate-500">Qty: {item.Total_Qty || 0}</span>
-                      </div>
-                      <div className="min-w-[180px] flex-1">
-                        <Label className="text-xs text-slate-500">Expected completion</Label>
-                        <DateSelector
-                          value={item.Expected_Completion}
-                          onChange={async (newDate) => {
-                            await updateExpectedCompletion(item.Component_Material, newDate);
-                          }}
-                        />
-                        {isDelayed && <p className="mt-1 text-xs text-amber-600">Past due</p>}
-                      </div>
-                      <div className="flex min-w-[140px] flex-col items-start gap-2 lg:items-end">
-                        <span className="text-xs text-slate-500">Latest buy: {item.Latest_Component_Date || 'N/A'}</span>
-                        <StatusButton
-                          currentStatus={(item.Transfer_Status || 'Not Start') as TransferStatus}
-                          onStatusChange={(status) => updateStatus(item.Component_Material, status)}
-                        />
-                      </div>
-                    </div>
                   </div>
                 );
               })}
@@ -953,7 +955,7 @@ export default function ProfessionalDashboard() {
               {filteredCurrent.map((item) => (
                 <div
                   key={item.Component_Material}
-                  className="flex flex-col gap-4 p-4 text-[15px] leading-tight md:flex-row md:items-center md:gap-6"
+                  className="grid gap-4 p-4 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1.5fr)] md:items-center"
                 >
                   <div className="flex items-start gap-3">
                     <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
@@ -971,17 +973,17 @@ export default function ProfessionalDashboard() {
                       <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
                     </div>
                   </div>
-                  <div className="flex flex-1 flex-wrap items-center gap-6 text-[15px] text-slate-700">
-                    <div className="flex min-w-[140px] flex-col text-right md:items-end">
+                  <div className="grid gap-4 text-sm text-slate-600 md:grid-cols-4 md:items-center">
+                    <div className="flex flex-col text-right md:items-end">
                       <span className="text-xs text-slate-500">Total value</span>
                       <span className="font-semibold text-slate-900">{formatCurrency(item.Value || 0)}</span>
                     </div>
-                    <div className="flex min-w-[140px] flex-col text-right md:items-end">
+                    <div className="flex flex-col text-right md:items-end">
                       <span className="text-xs text-slate-500">Unit price</span>
                       <span className="font-semibold text-slate-900">{formatCurrency(item.Standard_Price || 0)}</span>
-                      <span className="text-[12px] text-slate-500">Qty: {item.Total_Qty || 0}</span>
+                      <span className="text-[11px] text-slate-500">Qty: {item.Total_Qty || 0}</span>
                     </div>
-                    <div className="min-w-[180px] flex-1 md:justify-self-end">
+                    <div className="w-full md:justify-self-end">
                       <Label className="mb-1 block text-xs text-slate-500">Planned start</Label>
                       <DateSelector
                         value={item.Planned_Start}
@@ -990,8 +992,8 @@ export default function ProfessionalDashboard() {
                         }}
                       />
                     </div>
-                    <div className="flex items-center justify-end gap-3 text-sm text-slate-600 md:justify-self-end">
-                      <span className="hidden text-xs text-slate-500 md:inline">Kanban: {item.Kanban_Flag || '-'}</span>
+                    <div className="flex items-center justify-end gap-2 text-xs text-slate-500 md:justify-self-end">
+                      <span className="hidden md:inline">Kanban: {item.Kanban_Flag || '-'}</span>
                       <StatusButton
                         currentStatus={(item.Transfer_Status || 'Not Start') as TransferStatus}
                         onStatusChange={(status) => updateStatus(item.Component_Material, status)}
@@ -1041,7 +1043,7 @@ export default function ProfessionalDashboard() {
               {filteredRemaining.map((item) => (
                 <div
                   key={item.Component_Material}
-                  className="grid gap-4 p-4 text-[15px] leading-tight lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1.1fr)] lg:items-start"
+                  className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1.1fr)] lg:items-start"
                 >
                   <div className="flex items-start gap-3">
                     <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
