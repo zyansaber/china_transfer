@@ -21,7 +21,6 @@ import {
   ComposedChart,
   Legend,
   Line,
-  ResponsiveContainer,
   XAxis,
   YAxis,
 } from 'recharts';
@@ -574,41 +573,39 @@ export default function ProfessionalDashboard() {
                   value: { label: 'Value', color: 'hsl(158, 70%, 45%)' },
                 }}
               >
-                <ResponsiveContainer>
-                  <ComposedChart data={completedChart}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis
-                      yAxisId="left"
-                      tickFormatter={formatCompactNumber}
-                      label={{ value: 'Parts', angle: -90, position: 'insideLeft' }}
-                    />
-                    <YAxis
-                      yAxisId="right"
-                      orientation="right"
-                      tickFormatter={formatCompactNumber}
-                      label={{ value: 'Total Value', angle: 90, position: 'insideRight' }}
-                    />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Legend />
-                    <Bar
-                      yAxisId="left"
-                      dataKey="count"
-                      name="Parts"
-                      barSize={26}
-                      fill="var(--color-count)"
-                      radius={[8, 8, 0, 0]}
-                    />
-                    <Bar
-                      yAxisId="right"
-                      dataKey="value"
-                      name="Value"
-                      barSize={26}
-                      fill="var(--color-value)"
-                      radius={[8, 8, 0, 0]}
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
+                <ComposedChart data={completedChart}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis
+                    yAxisId="left"
+                    tickFormatter={formatCompactNumber}
+                    label={{ value: 'Parts', angle: -90, position: 'insideLeft' }}
+                  />
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    tickFormatter={formatCompactNumber}
+                    label={{ value: 'Total Value', angle: 90, position: 'insideRight' }}
+                  />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Legend />
+                  <Bar
+                    yAxisId="left"
+                    dataKey="count"
+                    name="Parts"
+                    barSize={26}
+                    fill="var(--color-count)"
+                    radius={[8, 8, 0, 0]}
+                  />
+                  <Bar
+                    yAxisId="right"
+                    dataKey="value"
+                    name="Value"
+                    barSize={26}
+                    fill="var(--color-value)"
+                    radius={[8, 8, 0, 0]}
+                  />
+                </ComposedChart>
               </ChartContainer>
             </div>
           </CardContent>
@@ -626,23 +623,21 @@ export default function ProfessionalDashboard() {
                   remainingAfter: { label: 'Remaining after month', color: 'hsl(221, 83%, 53%)' },
                 }}
               >
-                <ResponsiveContainer>
-                  <ComposedChart data={completedDecline}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis tickFormatter={formatCompactNumber} label={{ value: 'Parts', angle: -90, position: 'insideLeft' }} />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Legend />
-                    <Line
-                      type="monotone"
-                      dataKey="remainingAfter"
-                      name="Remaining parts"
-                      stroke="var(--color-remainingAfter)"
-                      strokeWidth={3}
-                      dot={{ r: 3 }}
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
+                <ComposedChart data={completedDecline}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis tickFormatter={formatCompactNumber} label={{ value: 'Parts', angle: -90, position: 'insideLeft' }} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="remainingAfter"
+                    name="Remaining parts"
+                    stroke="var(--color-remainingAfter)"
+                    strokeWidth={3}
+                    dot={{ r: 3 }}
+                  />
+                </ComposedChart>
               </ChartContainer>
             </div>
           </CardContent>
@@ -764,41 +759,39 @@ export default function ProfessionalDashboard() {
                 delayed: { label: 'Past due', color: 'hsl(34, 94%, 50%)' },
               }}
             >
-              <ResponsiveContainer>
-                <ComposedChart data={planForecast}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis yAxisId="left" tickFormatter={formatCompactNumber} />
-                  <YAxis yAxisId="right" orientation="right" tickFormatter={formatCompactNumber} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Legend />
-                  <Bar
-                    yAxisId="left"
-                    dataKey="parts"
-                    name="Parts"
-                    stackId="a"
-                    fill="var(--color-parts)"
-                    radius={[8, 8, 0, 0]}
-                  />
-                  <Bar
-                    yAxisId="left"
-                    dataKey="delayedParts"
-                    name="Past due"
-                    stackId="a"
-                    fill="var(--color-delayed)"
-                    radius={[8, 8, 0, 0]}
-                  />
-                  <Line
-                    type="monotone"
-                    yAxisId="right"
-                    dataKey="value"
-                    name="Value"
-                    stroke="var(--color-value)"
-                    strokeWidth={3}
-                    dot={{ r: 3 }}
-                  />
-                </ComposedChart>
-              </ResponsiveContainer>
+              <ComposedChart data={planForecast}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis yAxisId="left" tickFormatter={formatCompactNumber} />
+                <YAxis yAxisId="right" orientation="right" tickFormatter={formatCompactNumber} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Legend />
+                <Bar
+                  yAxisId="left"
+                  dataKey="parts"
+                  name="Parts"
+                  stackId="a"
+                  fill="var(--color-parts)"
+                  radius={[8, 8, 0, 0]}
+                />
+                <Bar
+                  yAxisId="left"
+                  dataKey="delayedParts"
+                  name="Past due"
+                  stackId="a"
+                  fill="var(--color-delayed)"
+                  radius={[8, 8, 0, 0]}
+                />
+                <Line
+                  type="monotone"
+                  yAxisId="right"
+                  dataKey="value"
+                  name="Value"
+                  stroke="var(--color-value)"
+                  strokeWidth={3}
+                  dot={{ r: 3 }}
+                />
+              </ComposedChart>
             </ChartContainer>
           </div>
         </CardContent>
@@ -912,30 +905,28 @@ export default function ProfessionalDashboard() {
                 plannedStarts: { label: 'Planned starts', color: 'hsl(142, 71%, 45%)' },
               }}
             >
-              <ResponsiveContainer>
-                <ComposedChart data={plannedStartTrajectory}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis tickFormatter={formatCompactNumber} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="remaining"
-                    name="Remaining after starts"
-                    stroke="var(--color-remaining)"
-                    strokeWidth={3}
-                    dot={{ r: 3 }}
-                  />
-                  <Bar
-                    dataKey="plannedStarts"
-                    name="Planned starts"
-                    fill="var(--color-plannedStarts)"
-                    radius={[6, 6, 0, 0]}
-                    barSize={32}
-                  />
-                </ComposedChart>
-              </ResponsiveContainer>
+              <ComposedChart data={plannedStartTrajectory}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis tickFormatter={formatCompactNumber} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="remaining"
+                  name="Remaining after starts"
+                  stroke="var(--color-remaining)"
+                  strokeWidth={3}
+                  dot={{ r: 3 }}
+                />
+                <Bar
+                  dataKey="plannedStarts"
+                  name="Planned starts"
+                  fill="var(--color-plannedStarts)"
+                  radius={[6, 6, 0, 0]}
+                  barSize={32}
+                />
+              </ComposedChart>
             </ChartContainer>
           </div>
         </CardContent>
