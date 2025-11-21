@@ -335,7 +335,7 @@ export default function ProfessionalDashboard() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-[1.2fr_1fr]">
+      <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-[1fr_1.25fr]">
         <Card className={professionalPalette.surface}>
           <CardHeader className="flex items-center justify-between">
             <div>
@@ -405,7 +405,7 @@ export default function ProfessionalDashboard() {
                   return (
                     <div
                       key={item.Component_Material}
-                      className="grid gap-4 p-4 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] md:items-center"
+                      className="grid gap-4 p-4 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1.25fr)] md:items-center"
                     >
                       <div className="flex items-start gap-3">
                         <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
@@ -471,7 +471,7 @@ export default function ProfessionalDashboard() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-[1.2fr_1fr]">
+      <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-[1fr_1.25fr]">
         <Card className={professionalPalette.surface}>
           <CardHeader>
             <CardTitle>Monthly forecast</CardTitle>
@@ -540,7 +540,7 @@ export default function ProfessionalDashboard() {
                   return (
                     <div
                       key={item.Component_Material}
-                      className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1.2fr)] lg:items-start"
+                      className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1.3fr)] lg:items-start"
                     >
                       <div className="flex items-start gap-3">
                         <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
@@ -605,7 +605,7 @@ export default function ProfessionalDashboard() {
         icon={Layers}
       />
 
-      <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-[1.15fr_1fr]">
+      <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-[1fr_1.2fr]">
         <Card className={professionalPalette.surface}>
           <CardHeader>
             <CardTitle>Current BoM schedule</CardTitle>
@@ -659,7 +659,7 @@ export default function ProfessionalDashboard() {
                 {currentBomItems.map((item) => (
                   <div
                     key={item.Component_Material}
-                    className="grid gap-4 p-4 md:grid-cols-[minmax(0,1.6fr)_minmax(0,1.1fr)] md:items-center"
+                    className="grid gap-4 p-4 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1.25fr)] md:items-center"
                   >
                     <div className="flex items-start gap-3">
                       <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
