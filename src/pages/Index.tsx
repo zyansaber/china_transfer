@@ -12,6 +12,7 @@ import {
   Layers,
   Lightbulb,
   NotebookPen,
+  Search,
   Sparkles,
 } from 'lucide-react';
 import {
@@ -76,6 +77,32 @@ type TabKey =
   | 'current'
   | 'remaining'
   | 'report';
+
+const filterByQuery = <T extends { Component_Material: string; Description_EN?: string }>(
+  items: T[],
+  query: string
+) => {
+  const q = query.trim().toLowerCase();
+  if (!q) return items;
+
+  return items.filter((item) =>
+    item.Component_Material.toLowerCase().includes(q) || (item.Description_EN || '').toLowerCase().includes(q)
+  );
+};
+
+const buildSearchSuggestions = <T extends { Component_Material: string; Description_EN?: string }>(
+  items: T[],
+  query: string,
+  limit = 6
+) => {
+  const q = query.trim().toLowerCase();
+  if (!q) return [] as string[];
+
+  const pool = items.flatMap((item) => [item.Component_Material, item.Description_EN].filter(Boolean) as string[]);
+  const unique = Array.from(new Set(pool));
+
+  return unique.filter((value) => value.toLowerCase().includes(q)).slice(0, limit);
+};
 
 const sidebarNav: { key: TabKey; label: string; description: string; icon: typeof Activity }[] = [
   { key: 'completed', label: 'Completed', description: 'Volume, value, and timing', icon: BadgeCheck },
@@ -155,6 +182,10 @@ export default function ProfessionalDashboard() {
   const [activeTab, setActiveTab] = useState<TabKey>('completed');
   const [sortField, setSortField] = useState<'Value' | 'Standard_Price' | 'Total_Qty'>('Value');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [completedSearch, setCompletedSearch] = useState('');
+  const [planSearch, setPlanSearch] = useState('');
+  const [currentSearch, setCurrentSearch] = useState('');
+  const [remainingSearch, setRemainingSearch] = useState('');
 
   const completedItems = useMemo(
     () => bomItems.filter((item) => (item.Transfer_Status || 'Not Start') === 'Finished'),
@@ -211,6 +242,32 @@ export default function ProfessionalDashboard() {
   const sortedPlan = useMemo(() => sortItems(planItems), [planItems, sortItems]);
   const sortedCurrent = useMemo(() => sortItems(currentBomItems), [currentBomItems, sortItems]);
   const sortedRemaining = useMemo(() => sortItems(remainingItems), [remainingItems, sortItems]);
+  const filteredCompleted = useMemo(
+    () => filterByQuery(sortedCompleted, completedSearch),
+    [sortedCompleted, completedSearch]
+  );
+  const filteredPlan = useMemo(() => filterByQuery(sortedPlan, planSearch), [sortedPlan, planSearch]);
+  const filteredCurrent = useMemo(
+    () => filterByQuery(sortedCurrent, currentSearch),
+    [sortedCurrent, currentSearch]
+  );
+  const filteredRemaining = useMemo(
+    () => filterByQuery(sortedRemaining, remainingSearch),
+    [sortedRemaining, remainingSearch]
+  );
+  const completedSuggestions = useMemo(
+    () => buildSearchSuggestions(sortedCompleted, completedSearch),
+    [sortedCompleted, completedSearch]
+  );
+  const planSuggestions = useMemo(() => buildSearchSuggestions(sortedPlan, planSearch), [sortedPlan, planSearch]);
+  const currentSuggestions = useMemo(
+    () => buildSearchSuggestions(sortedCurrent, currentSearch),
+    [sortedCurrent, currentSearch]
+  );
+  const remainingSuggestions = useMemo(
+    () => buildSearchSuggestions(sortedRemaining, remainingSearch),
+    [sortedRemaining, remainingSearch]
+  );
   const totalPartsBaseline = bomItems.length;
 
   const SortControls = ({ title }: { title?: string }) => {
@@ -254,6 +311,48 @@ export default function ProfessionalDashboard() {
       </div>
     );
   };
+
+  const SearchInput = ({
+    label,
+    value,
+    onChange,
+    suggestions,
+    placeholder,
+  }: {
+    label?: string;
+    value: string;
+    onChange: (value: string) => void;
+    suggestions: string[];
+    placeholder?: string;
+  }) => (
+    <div className="space-y-1 text-sm">
+      {label && <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</span>}
+      <div className="relative">
+        <Input
+          value={value}
+          placeholder={placeholder}
+          onChange={(e) => onChange(e.target.value)}
+          className="pr-10"
+        />
+        <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        {value && suggestions.length > 0 && (
+          <div className="absolute left-0 right-0 z-20 mt-2 max-h-60 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+            {suggestions.map((suggestion) => (
+              <button
+                key={suggestion}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-indigo-50"
+                onClick={() => onChange(suggestion)}
+                type="button"
+              >
+                <Search className="h-3.5 w-3.5 text-slate-400" />
+                <span className="line-clamp-1">{suggestion}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   const completed2025 = useMemo(
     () =>
@@ -458,7 +557,7 @@ export default function ProfessionalDashboard() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 xl:grid-cols-3 2xl:grid-cols-[1fr_1fr_1.35fr]">
+      <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-[1.05fr_1fr]">
         <Card className={professionalPalette.surface}>
           <CardHeader className="flex items-center justify-between">
             <div>
@@ -548,24 +647,34 @@ export default function ProfessionalDashboard() {
             </div>
           </CardContent>
         </Card>
+      </div>
 
-        <Card className={`${professionalPalette.surface} xl:col-span-2`}>
-          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle>Completed parts</CardTitle>
-              <CardDescription>Latest domestic purchase month, value, and imagery</CardDescription>
-            </div>
+      <Card className={`${professionalPalette.surface}`}>
+        <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <CardTitle>Completed parts</CardTitle>
+            <CardDescription>Latest domestic purchase month, value, and imagery</CardDescription>
+          </div>
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+            <SearchInput
+              label="Search"
+              value={completedSearch}
+              onChange={setCompletedSearch}
+              suggestions={completedSuggestions}
+              placeholder="Filter by code or description"
+            />
             <SortControls title="Sort completed" />
-          </CardHeader>
-          <CardContent className="p-0">
-            <ScrollArea className="h-[620px]">
-              <div className="divide-y divide-slate-200">
-                {sortedCompleted.map((item) => {
-                  const lastBuy = parseDate(item.Latest_Component_Date);
-                  return (
-                    <div
-                      key={item.Component_Material}
-                      className="grid gap-4 p-4 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1.5fr)] md:items-center"
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <ScrollArea className="h-[620px]">
+            <div className="divide-y divide-slate-200">
+              {filteredCompleted.map((item) => {
+                const lastBuy = parseDate(item.Latest_Component_Date);
+                return (
+                  <div
+                    key={item.Component_Material}
+                    className="grid gap-4 p-4 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1.5fr)] md:items-center"
                     >
                       <div className="flex items-start gap-3">
                         <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
@@ -601,17 +710,16 @@ export default function ProfessionalDashboard() {
                           <span>{lastBuy ? format(lastBuy, 'MMM yyyy') : 'N/A'}</span>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-                {completedItems.length === 0 && (
-                  <div className="p-4 text-sm text-slate-500">No completed records yet.</div>
-                )}
-              </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
-      </div>
+                  </div>
+                );
+              })}
+              {filteredCompleted.length === 0 && (
+                <div className="p-4 text-sm text-slate-500">No completed records match the search.</div>
+              )}
+            </div>
+          </ScrollArea>
+        </CardContent>
+      </Card>
     </div>
   );
 
@@ -642,73 +750,81 @@ export default function ProfessionalDashboard() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-[1fr_1.25fr]">
-        <Card className={professionalPalette.surface}>
-          <CardHeader>
-            <CardTitle>Monthly forecast</CardTitle>
-            <CardDescription>Stacked volume with value trendline; delayed parts flagged</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80">
-              <ChartContainer
-                config={{
-                  parts: { label: 'Forecasted parts', color: 'hsl(215, 80%, 55%)' },
-                  value: { label: 'Forecasted value', color: 'hsl(221, 39%, 11%)' },
-                  delayed: { label: 'Past due', color: 'hsl(34, 94%, 50%)' },
-                }}
-              >
-                <ResponsiveContainer>
-                  <ComposedChart data={planForecast}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis yAxisId="left" tickFormatter={formatCompactNumber} />
-                    <YAxis yAxisId="right" orientation="right" tickFormatter={formatCompactNumber} />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Legend />
-                    <Bar
-                      yAxisId="left"
-                      dataKey="parts"
-                      name="Parts"
-                      stackId="a"
-                      fill="var(--color-parts)"
-                      radius={[8, 8, 0, 0]}
-                    />
-                    <Bar
-                      yAxisId="left"
-                      dataKey="delayedParts"
-                      name="Past due"
-                      stackId="a"
-                      fill="var(--color-delayed)"
-                      radius={[8, 8, 0, 0]}
-                    />
-                    <Line
-                      type="monotone"
-                      yAxisId="right"
-                      dataKey="value"
-                      name="Value"
-                      stroke="var(--color-value)"
-                      strokeWidth={3}
-                      dot={{ r: 3 }}
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </ChartContainer>
-            </div>
-          </CardContent>
-        </Card>
+      <Card className={professionalPalette.surface}>
+        <CardHeader>
+          <CardTitle>Monthly forecast</CardTitle>
+          <CardDescription>Stacked volume with value trendline; delayed parts flagged</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="h-80">
+            <ChartContainer
+              config={{
+                parts: { label: 'Forecasted parts', color: 'hsl(215, 80%, 55%)' },
+                value: { label: 'Forecasted value', color: 'hsl(221, 39%, 11%)' },
+                delayed: { label: 'Past due', color: 'hsl(34, 94%, 50%)' },
+              }}
+            >
+              <ResponsiveContainer>
+                <ComposedChart data={planForecast}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis yAxisId="left" tickFormatter={formatCompactNumber} />
+                  <YAxis yAxisId="right" orientation="right" tickFormatter={formatCompactNumber} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Legend />
+                  <Bar
+                    yAxisId="left"
+                    dataKey="parts"
+                    name="Parts"
+                    stackId="a"
+                    fill="var(--color-parts)"
+                    radius={[8, 8, 0, 0]}
+                  />
+                  <Bar
+                    yAxisId="left"
+                    dataKey="delayedParts"
+                    name="Past due"
+                    stackId="a"
+                    fill="var(--color-delayed)"
+                    radius={[8, 8, 0, 0]}
+                  />
+                  <Line
+                    type="monotone"
+                    yAxisId="right"
+                    dataKey="value"
+                    name="Value"
+                    stroke="var(--color-value)"
+                    strokeWidth={3}
+                    dot={{ r: 3 }}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          </div>
+        </CardContent>
+      </Card>
 
-        <Card className={professionalPalette.surface}>
-          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle>Planned detail</CardTitle>
-              <CardDescription>Expected completion dates saved to Firebase</CardDescription>
-            </div>
+      <Card className={professionalPalette.surface}>
+        <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <CardTitle>Planned detail</CardTitle>
+            <CardDescription>Expected completion dates saved to Firebase</CardDescription>
+          </div>
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+            <SearchInput
+              label="Search"
+              value={planSearch}
+              onChange={setPlanSearch}
+              suggestions={planSuggestions}
+              placeholder="Filter by code or description"
+            />
             <SortControls title="Sort in progress" />
-          </CardHeader>
-          <CardContent className="p-0">
-            <ScrollArea className="h-[620px]">
-              <div className="divide-y divide-slate-200">
-                {sortedPlan.map((item) => {
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <ScrollArea className="h-[620px]">
+            <div className="divide-y divide-slate-200">
+              {filteredPlan.map((item) => {
                   const expected = parseDate(item.Expected_Completion);
                   const isDelayed = expected ? isBefore(expected, new Date()) : false;
                   return (
@@ -734,131 +850,6 @@ export default function ProfessionalDashboard() {
                           <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
                         </div>
                       </div>
-                      <div className="grid gap-4 text-sm text-slate-600 md:grid-cols-5 md:items-start">
-                        <div className="flex flex-col text-xs text-slate-500 md:items-end">
-                          <span className="uppercase tracking-wide">Value</span>
-                          <span className="text-base font-semibold text-slate-900">{formatCurrency(item.Value || 0)}</span>
-                        </div>
-                        <div className="flex flex-col text-xs text-slate-500 md:items-end">
-                          <span className="uppercase tracking-wide">Unit price</span>
-                          <span className="text-base font-semibold text-slate-900">{formatCurrency(item.Standard_Price || 0)}</span>
-                          <span className="text-[11px] text-slate-500">Qty: {item.Total_Qty || 0}</span>
-                        </div>
-                        <div className="md:col-span-2 md:w-full">
-                          <Label className="text-xs text-slate-500">Expected completion</Label>
-                          <DateSelector
-                            value={item.Expected_Completion}
-                            onChange={async (newDate) => {
-                              await updateExpectedCompletion(item.Component_Material, newDate);
-                            }}
-                          />
-                          {isDelayed && <p className="mt-1 text-xs text-amber-600">Past due</p>}
-                        </div>
-                        <div className="flex flex-col items-start gap-2 md:items-end">
-                          <span className="text-xs text-slate-500">Latest buy: {item.Latest_Component_Date || 'N/A'}</span>
-                          <StatusButton
-                            currentStatus={(item.Transfer_Status || 'Not Start') as TransferStatus}
-                            onStatusChange={(status) => updateStatus(item.Component_Material, status)}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-                {planItems.length === 0 && (
-                  <div className="p-4 text-sm text-slate-500">No items are in progress.</div>
-                )}
-              </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-
-  const renderCurrent = () => (
-    <div className="space-y-6">
-      <SectionHeader
-        title="Current BoM"
-        description="Only Not Start parts; trajectory toward zero"
-        icon={Layers}
-      />
-
-      <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-[1fr_1.2fr]">
-        <Card className={professionalPalette.surface}>
-          <CardHeader>
-            <CardTitle>Current BoM schedule</CardTitle>
-            <CardDescription>Plan start months and remaining inventory inside one view</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-72">
-              <ChartContainer
-                config={{
-                  remaining: { label: 'Remaining after starts', color: 'hsl(215, 80%, 50%)' },
-                  plannedStarts: { label: 'Planned starts', color: 'hsl(142, 71%, 45%)' },
-                }}
-              >
-                <ResponsiveContainer>
-                  <ComposedChart data={plannedStartTrajectory}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis tickFormatter={formatCompactNumber} />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Legend />
-                    <Line
-                      type="monotone"
-                      dataKey="remaining"
-                      name="Remaining after starts"
-                      stroke="var(--color-remaining)"
-                      strokeWidth={3}
-                      dot={{ r: 3 }}
-                    />
-                    <Bar
-                      dataKey="plannedStarts"
-                      name="Planned starts"
-                      fill="var(--color-plannedStarts)"
-                      radius={[6, 6, 0, 0]}
-                      barSize={32}
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </ChartContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className={professionalPalette.surface}>
-          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle>Not Start detail</CardTitle>
-              <CardDescription>Record planned starts while keeping the chart locked beside the table</CardDescription>
-            </div>
-            <SortControls title="Sort Not Start" />
-          </CardHeader>
-          <CardContent className="p-0">
-            <ScrollArea className="h-[620px]">
-              <div className="divide-y divide-slate-200">
-                {sortedCurrent.map((item) => (
-                  <div
-                    key={item.Component_Material}
-                    className="grid gap-4 p-4 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1.5fr)] md:items-center"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
-                        {item.imageUrl ? (
-                          <img src={item.imageUrl} alt={item.Component_Material} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">No image</div>
-                        )}
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold text-slate-900">{item.Component_Material}</p>
-                          <Badge variant="outline" className="text-xs">Not Start</Badge>
-                        </div>
-                        <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
-                      </div>
-                    </div>
                     <div className="grid gap-4 text-sm text-slate-600 md:grid-cols-4 md:items-center">
                       <div className="flex flex-col text-right md:items-end">
                         <span className="text-xs text-slate-500">Total value</span>
@@ -899,6 +890,136 @@ export default function ProfessionalDashboard() {
     </div>
   );
 
+  const renderCurrent = () => (
+    <div className="space-y-6">
+      <SectionHeader
+        title="Current BoM"
+        description="Only Not Start parts; trajectory toward zero"
+        icon={Layers}
+      />
+
+      <Card className={professionalPalette.surface}>
+        <CardHeader>
+          <CardTitle>Current BoM schedule</CardTitle>
+          <CardDescription>Plan start months and remaining inventory inside one view</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="h-72">
+            <ChartContainer
+              config={{
+                remaining: { label: 'Remaining after starts', color: 'hsl(215, 80%, 50%)' },
+                plannedStarts: { label: 'Planned starts', color: 'hsl(142, 71%, 45%)' },
+              }}
+            >
+              <ResponsiveContainer>
+                <ComposedChart data={plannedStartTrajectory}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis tickFormatter={formatCompactNumber} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="remaining"
+                    name="Remaining after starts"
+                    stroke="var(--color-remaining)"
+                    strokeWidth={3}
+                    dot={{ r: 3 }}
+                  />
+                  <Bar
+                    dataKey="plannedStarts"
+                    name="Planned starts"
+                    fill="var(--color-plannedStarts)"
+                    radius={[6, 6, 0, 0]}
+                    barSize={32}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className={professionalPalette.surface}>
+        <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <CardTitle>Not Start detail</CardTitle>
+            <CardDescription>Record planned starts while keeping the chart locked beside the table</CardDescription>
+          </div>
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+            <SearchInput
+              label="Search"
+              value={currentSearch}
+              onChange={setCurrentSearch}
+              suggestions={currentSuggestions}
+              placeholder="Filter by code or description"
+            />
+            <SortControls title="Sort Not Start" />
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <ScrollArea className="h-[620px]">
+            <div className="divide-y divide-slate-200">
+              {filteredCurrent.map((item) => (
+                <div
+                  key={item.Component_Material}
+                  className="grid gap-4 p-4 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1.5fr)] md:items-center"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
+                      {item.imageUrl ? (
+                        <img src={item.imageUrl} alt={item.Component_Material} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">No image</div>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-slate-900">{item.Component_Material}</p>
+                        <Badge variant="outline" className="text-xs">Not Start</Badge>
+                      </div>
+                      <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
+                    </div>
+                  </div>
+                  <div className="grid gap-4 text-sm text-slate-600 md:grid-cols-4 md:items-center">
+                    <div className="flex flex-col text-right md:items-end">
+                      <span className="text-xs text-slate-500">Total value</span>
+                      <span className="font-semibold text-slate-900">{formatCurrency(item.Value || 0)}</span>
+                    </div>
+                    <div className="flex flex-col text-right md:items-end">
+                      <span className="text-xs text-slate-500">Unit price</span>
+                      <span className="font-semibold text-slate-900">{formatCurrency(item.Standard_Price || 0)}</span>
+                      <span className="text-[11px] text-slate-500">Qty: {item.Total_Qty || 0}</span>
+                    </div>
+                    <div className="w-full md:justify-self-end">
+                      <Label className="mb-1 block text-xs text-slate-500">Planned start</Label>
+                      <DateSelector
+                        value={item.Planned_Start}
+                        onChange={async (value) => {
+                          await updatePlannedStart(item.Component_Material, value);
+                        }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-end gap-2 text-xs text-slate-500 md:justify-self-end">
+                      <span className="hidden md:inline">Kanban: {item.Kanban_Flag || '-'}</span>
+                      <StatusButton
+                        currentStatus={(item.Transfer_Status || 'Not Start') as TransferStatus}
+                        onStatusChange={(status) => updateStatus(item.Component_Material, status)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {filteredCurrent.length === 0 && (
+                <div className="p-4 text-sm text-slate-500">No Not Start parts match the search.</div>
+              )}
+            </div>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+    </div>
+  );
+
   const renderRemaining = () => (
     <div className="space-y-6">
       <SectionHeader
@@ -908,17 +1029,26 @@ export default function ProfessionalDashboard() {
       />
 
       <Card className={professionalPalette.surface}>
-        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <CardTitle>Hold detail</CardTitle>
             <CardDescription>Capture reason and brand for each Not to Transfer item</CardDescription>
           </div>
-          <SortControls title="Sort holds" />
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+            <SearchInput
+              label="Search"
+              value={remainingSearch}
+              onChange={setRemainingSearch}
+              suggestions={remainingSuggestions}
+              placeholder="Filter by code or description"
+            />
+            <SortControls title="Sort holds" />
+          </div>
         </CardHeader>
         <CardContent>
           <div className="rounded-xl border border-slate-200 overflow-hidden">
             <div className="divide-y divide-slate-200">
-              {sortedRemaining.map((item) => (
+              {filteredRemaining.map((item) => (
                 <div
                   key={item.Component_Material}
                   className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1.1fr)] lg:items-start"
@@ -986,8 +1116,8 @@ export default function ProfessionalDashboard() {
                   </div>
                 </div>
               ))}
-              {remainingItems.length === 0 && (
-                <div className="p-4 text-sm text-slate-500">No Not to Transfer items remain in AU.</div>
+              {filteredRemaining.length === 0 && (
+                <div className="p-4 text-sm text-slate-500">No Not to Transfer items match the search.</div>
               )}
             </div>
           </div>
