@@ -397,7 +397,7 @@ export default function ProfessionalDashboard() {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50">
-        <div className="max-w-6xl mx-auto px-6 py-12 space-y-4">
+        <div className="w-full px-6 py-12 space-y-4 sm:px-8 lg:px-12">
           <Skeleton className="h-12 w-64" />
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-80 w-full" />
@@ -409,7 +409,7 @@ export default function ProfessionalDashboard() {
   if (error) {
     return (
       <div className="min-h-screen bg-slate-50">
-        <div className="max-w-4xl mx-auto px-6 py-12">
+        <div className="w-full px-6 py-12 sm:px-8 lg:px-12">
           <Alert>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
