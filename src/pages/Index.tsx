@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { format, isBefore, isValid, parseISO, startOfMonth } from 'date-fns';
+import { addMonths, format, isBefore, isValid, parseISO, startOfMonth } from 'date-fns';
 import {
   Activity,
   ArrowUpDown,
@@ -35,8 +35,7 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { StatusButton } from '@/components/StatusButton';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
@@ -68,6 +67,17 @@ const parseDate = (value?: string) => {
   if (!value) return null;
   const parsed = parseISO(value);
   return isValid(parsed) ? parsed : null;
+};
+
+const buildMonthOptions = () => {
+  const start = startOfMonth(new Date(2024, 0, 1));
+  return Array.from({ length: 36 }, (_, index) => {
+    const date = startOfMonth(addMonths(start, index));
+    return {
+      value: date.toISOString(),
+      label: format(date, 'MMM yyyy'),
+    };
+  });
 };
 
 type TabKey =
@@ -105,35 +115,39 @@ const DateSelector = ({
   onChange: (newDate: string | null) => void;
 }) => {
   const parsed = value ? parseDate(value) : null;
+  const selectedValue = parsed ? startOfMonth(parsed).toISOString() : 'unset';
+  const monthOptions = useMemo(() => buildMonthOptions(), []);
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          className={cn(
-            'w-full justify-start text-left font-normal',
-            !value && 'text-muted-foreground'
-          )}
-        >
-          <CalendarIcon className="mr-2 h-4 w-4" />
-          {parsed ? format(parsed, 'MMM yyyy') : 'Select month'}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="p-0" align="start">
-        <Calendar
-          mode="single"
-          selected={parsed ?? undefined}
-          onSelect={(date) => onChange(date ? date.toISOString() : null)}
-          initialFocus
-        />
-      </PopoverContent>
-    </Popover>
+    <Select
+      value={selectedValue}
+      onValueChange={(newValue) => {
+        if (newValue === 'unset') {
+          onChange(null);
+          return;
+        }
+        const monthStart = startOfMonth(parseISO(newValue));
+        onChange(monthStart.toISOString());
+      }}
+    >
+      <SelectTrigger className={cn('w-full justify-start text-left font-normal', !value && 'text-muted-foreground')}>
+        <CalendarIcon className="mr-2 h-4 w-4" />
+        <SelectValue placeholder="Select month" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="unset">No date</SelectItem>
+        {monthOptions.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 };
 
 export default function ProfessionalDashboard() {
-  const {
+  const { 
     bomItems,
     loading,
     error,
@@ -145,6 +159,7 @@ export default function ProfessionalDashboard() {
   const [activeTab, setActiveTab] = useState<TabKey>('completed');
   const [sortField, setSortField] = useState<'Value' | 'Standard_Price' | 'Total_Qty'>('Value');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [declineMonthLimit, setDeclineMonthLimit] = useState<string>('all');
 
   const completedItems = useMemo(
     () => bomItems.filter((item) => (item.Transfer_Status || 'Not Start') === 'Finished'),
@@ -201,7 +216,6 @@ export default function ProfessionalDashboard() {
   const sortedPlan = useMemo(() => sortItems(planItems), [planItems, sortItems]);
   const sortedCurrent = useMemo(() => sortItems(currentBomItems), [currentBomItems, sortItems]);
   const sortedRemaining = useMemo(() => sortItems(remainingItems), [remainingItems, sortItems]);
-  const totalPartsBaseline = bomItems.length;
 
   const SortControls = ({ title }: { title?: string }) => {
     const sortOptions: { key: typeof sortField; label: string }[] = [
@@ -254,6 +268,46 @@ export default function ProfessionalDashboard() {
     [completedItems]
   );
 
+  const declineBaselineQty = useMemo(
+    () =>
+      completed2025.reduce((sum, item) => sum + (item.Total_Qty || 0), 0) +
+      planItems.reduce((sum, item) => sum + (item.Total_Qty || 0), 0) +
+      currentBomItems.reduce((sum, item) => sum + (item.Total_Qty || 0), 0) +
+      remainingItems.reduce((sum, item) => sum + (item.Total_Qty || 0), 0),
+    [completed2025, currentBomItems, planItems, remainingItems]
+  );
+
+  const declineMonths = useMemo(() => {
+    const monthMap = new Map<number, { month: string; sortValue: number; completedQty: number }>();
+
+    completed2025.forEach((item) => {
+      const date = parseDate(item.Latest_Component_Date) || parseDate(item.Status_UpdatedAt);
+      if (!date) return;
+      const sortValue = +startOfMonth(date);
+      const entry = monthMap.get(sortValue) ?? { month: format(date, 'MMM'), sortValue, completedQty: 0 };
+      entry.completedQty += item.Total_Qty || 0;
+      monthMap.set(sortValue, entry);
+    });
+
+    return Array.from(monthMap.values()).sort((a, b) => a.sortValue - b.sortValue);
+  }, [completed2025]);
+
+  const declineMonthOptions = useMemo(
+    () =>
+      declineMonths.map((entry) => ({
+        value: new Date(entry.sortValue).toISOString(),
+        label: format(new Date(entry.sortValue), 'MMM yyyy'),
+      })),
+    [declineMonths]
+  );
+
+  const filteredDeclineMonths = useMemo(() => {
+    if (declineMonthLimit === 'all') return declineMonths;
+    const limitDate = parseISO(declineMonthLimit);
+    const limitValue = +startOfMonth(limitDate);
+    return declineMonths.filter((entry) => entry.sortValue <= limitValue);
+  }, [declineMonthLimit, declineMonths]);
+
   const completedChart = useMemo(() => {
     const monthMap = new Map<string, { month: string; sortValue: number; count: number; value: number }>();
 
@@ -276,35 +330,28 @@ export default function ProfessionalDashboard() {
   }, [completed2025]);
 
   const completedDecline = useMemo(() => {
-    const monthMap = new Map<number, { month: string; sortValue: number; completed: number }>();
+    let remainingQty = declineBaselineQty;
+    const ordered = filteredDeclineMonths.length
+      ? filteredDeclineMonths
+      : [
+          {
+            month: 'Jan',
+            sortValue: +startOfMonth(new Date(2025, 0, 1)),
+            completedQty: 0,
+          },
+        ];
 
-    completed2025.forEach((item) => {
-      const date = parseDate(item.Latest_Component_Date) || parseDate(item.Status_UpdatedAt);
-      if (!date) return;
-      const sortValue = +startOfMonth(date);
-      const entry = monthMap.get(sortValue) ?? {
-        month: format(date, 'MMM'),
-        sortValue,
-        completed: 0,
-      };
-      entry.completed += 1;
-      monthMap.set(sortValue, entry);
-    });
-
-    const ordered = Array.from(monthMap.values()).sort((a, b) => a.sortValue - b.sortValue);
-
-    let remaining = totalPartsBaseline;
     return ordered.map((entry) => {
-      const remainingAfter = Math.max(remaining - entry.completed, 0);
+      const remainingAfter = Math.max(remainingQty - entry.completedQty, 0);
       const dataPoint = {
         month: entry.month,
-        remaining,
+        remainingQty,
         remainingAfter,
       };
-      remaining = remainingAfter;
+      remainingQty = remainingAfter;
       return dataPoint;
     });
-  }, [completed2025, totalPartsBaseline]);
+  }, [declineBaselineQty, filteredDeclineMonths]);
 
   const planForecast = useMemo(() => {
     const today = new Date();
@@ -415,6 +462,15 @@ export default function ProfessionalDashboard() {
     completedParts: completedItems.length,
   };
 
+  const remainingSummary = useMemo(
+    () => ({
+      count: remainingItems.length,
+      totalQty: remainingItems.reduce((sum, item) => sum + (item.Total_Qty || 0), 0),
+      totalValue: remainingItems.reduce((sum, item) => sum + (item.Value || 0), 0),
+    }),
+    [remainingItems]
+  );
+
   const reportText = `BoM Transfer Report\n\n- Parts completed: ${summary.completedParts}/${summary.totalParts}\n- Completion rate: ${Math.round(
     (summary.completedParts / Math.max(summary.totalParts, 1)) * 100
   )}%\n- Value completed: ${formatCurrency(summary.completedValue)}\n- Remaining (excluding Not to Transfer): ${currentBomItems.length} parts\n- Delayed plans: ${delayedCount}\nGenerated on: ${format(new Date(), 'PPpp')}`;
@@ -506,9 +562,29 @@ export default function ProfessionalDashboard() {
         </Card>
 
         <Card className={professionalPalette.surface}>
-          <CardHeader>
-            <CardTitle>2025 total quantity decline</CardTitle>
-            <CardDescription>Cumulative remaining parts as completions land</CardDescription>
+          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle>2025 total quantity decline</CardTitle>
+              <CardDescription>
+                Remaining + Current + In Progress + 2025 Completed quantities, stepping down by each month's completions
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <Label className="text-xs text-slate-500">Show through</Label>
+              <Select value={declineMonthLimit} onValueChange={setDeclineMonthLimit}>
+                <SelectTrigger className="w-[170px]">
+                  <SelectValue placeholder="All 2025 completions" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All 2025 months</SelectItem>
+                  {declineMonthOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="h-80">
@@ -521,13 +597,16 @@ export default function ProfessionalDashboard() {
                   <ComposedChart data={completedDecline}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" />
-                    <YAxis tickFormatter={formatCompactNumber} label={{ value: 'Parts', angle: -90, position: 'insideLeft' }} />
+                    <YAxis
+                      tickFormatter={formatCompactNumber}
+                      label={{ value: 'Total qty', angle: -90, position: 'insideLeft' }}
+                    />
                     <ChartTooltip content={<ChartTooltipContent />} />
                     <Legend />
                     <Line
                       type="monotone"
                       dataKey="remainingAfter"
-                      name="Remaining parts"
+                      name="Remaining qty"
                       stroke="var(--color-remainingAfter)"
                       strokeWidth={3}
                       dot={{ r: 3 }}
@@ -872,7 +951,7 @@ export default function ProfessionalDashboard() {
                         <span className="hidden md:inline">Kanban: {item.Kanban_Flag || '-'}</span>
                         <StatusButton
                           currentStatus={(item.Transfer_Status || 'Not Start') as TransferStatus}
-                          onStatusChange={(status) => updateStatus(item.Component_Material, status)}
+                             onStatusChange={(status) => updateStatus(item.Component_Material, status)}
                         />
                       </div>
                     </div>
@@ -896,6 +975,27 @@ export default function ProfessionalDashboard() {
         description="Not to Transfer items held in AU with reason and brand"
         icon={Factory}
       />
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Card className="border-slate-200 bg-slate-50">
+          <CardContent className="p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Items held</p>
+            <p className="text-2xl font-semibold text-slate-900">{remainingSummary.count}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-slate-200 bg-slate-50">
+          <CardContent className="p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Total quantity</p>
+            <p className="text-2xl font-semibold text-slate-900">{formatCompactNumber(remainingSummary.totalQty)}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-slate-200 bg-slate-50">
+          <CardContent className="p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Total value</p>
+            <p className="text-2xl font-semibold text-emerald-700">{formatCurrency(remainingSummary.totalValue)}</p>
+          </CardContent>
+        </Card>
+      </div>
 
       <Card className={professionalPalette.surface}>
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -1069,7 +1169,7 @@ export default function ProfessionalDashboard() {
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="mx-auto flex w-full max-w-none flex-col gap-6 px-4 py-8 sm:px-6 lg:flex-row lg:items-start lg:py-12 xl:px-8">
-        <aside className="w-full rounded-2xl border border-slate-200 bg-white/90 p-3 shadow-sm lg:w-52 lg:self-start lg:sticky lg:top-8 xl:w-56">
+        <aside className="w-full rounded-2xl border border-slate-200 bg-white/90 p-3 shadow-sm lg:sticky lg:top-8 lg:w-40 lg:self-start lg:shrink-0 xl:w-44">
           <div className="flex items-center gap-2 pb-4">
             <Sparkles className="h-5 w-5 text-indigo-600" />
             <div>
