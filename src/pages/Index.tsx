@@ -968,7 +968,7 @@ export default function ProfessionalDashboard() {
               {filteredCurrent.map((item) => (
                 <div
                   key={item.Component_Material}
-                  className="grid gap-5 p-4 lg:grid-cols-[1.2fr_0.8fr_1fr_0.85fr] lg:items-center"
+                  className="grid gap-3 p-4 lg:grid-cols-[1.5fr_1fr_0.95fr_1.05fr_0.9fr] lg:items-center"
                 >
                   <div className="flex items-start gap-3">
                     <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
