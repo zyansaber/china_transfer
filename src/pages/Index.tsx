@@ -838,7 +838,7 @@ export default function ProfessionalDashboard() {
                   return (
                     <div
                       key={item.Component_Material}
-                      className="grid gap-3 p-4 lg:grid-cols-[1.5fr_1fr_0.9fr_1.2fr_1fr] lg:items-center"
+                      className="grid gap-3 p-4 lg:grid-cols-[1.2fr_1fr_1.1fr_1fr_1fr] lg:items-center"
                     >
                       <div className="flex items-start gap-3">
                         <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">
