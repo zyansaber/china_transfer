@@ -132,9 +132,9 @@ const DateSelector = ({
   const parsed = value ? parseDate(value) : null;
   const monthOptions = useMemo(() => {
     const months: { label: string; value: string }[] = [];
-    const start = startOfMonth(new Date(new Date().getFullYear() - 1, 0, 1));
+    const start = startOfMonth(new Date());
 
-    for (let i = 0; i < 24; i += 1) {
+    for (let i = 0; i < 12; i += 1) {
       const month = addMonths(start, i);
       months.push({ label: format(month, 'MMM yyyy'), value: month.toISOString() });
     }
