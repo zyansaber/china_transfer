@@ -40,28 +40,27 @@ import { cn } from '@/lib/utils';
 import { StatusButton } from '@/components/StatusButton';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 
-const formatCurrency = (value: number) => {
-  const abs = Math.abs(value);
-  if (abs >= 1_000_000) {
-    return `${value < 0 ? '-' : ''}$${(abs / 1_000_000).toFixed(1)}M`;
-  }
-  if (abs >= 1_000) {
-    return `${value < 0 ? '-' : ''}$${(abs / 1_000).toFixed(1)}K`;
-  }
-  return new Intl.NumberFormat('en-US', {
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'AUD',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(value);
-};
 
-const formatCompactNumber = (value: number) => {
-  const abs = Math.abs(value);
-  if (abs >= 1_000_000) return `${value < 0 ? '-' : ''}${(abs / 1_000_000).toFixed(1)}M`;
-  if (abs >= 1_000) return `${value < 0 ? '-' : ''}${(abs / 1_000).toFixed(1)}K`;
-  return `${value}`;
-};
+const formatFullCurrency = (value: number) =>
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'AUD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+
+const formatCompactNumber = (value: number) =>
+  new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
 
 const parseDate = (value?: string) => {
   if (!value) return null;
@@ -707,7 +706,7 @@ export default function ProfessionalDashboard() {
                         </div>
                         <div className="flex flex-col text-right md:items-end">
                           <span className="text-xs text-slate-500">Unit price</span>
-                          <span className="font-semibold text-slate-900">{formatCurrency(item.Standard_Price || 0)}</span>
+                          <span className="font-semibold text-slate-900">{formatFullCurrency(item.Standard_Price || 0)}</span>
                         </div>
                         <div className="flex flex-col text-right md:items-end">
                           <span className="text-xs text-slate-500">Total qty</span>
@@ -865,7 +864,7 @@ export default function ProfessionalDashboard() {
                       </div>
                       <div className="flex flex-col gap-1 text-right text-slate-700 lg:items-end">
                         <span className="text-xs uppercase tracking-wide text-slate-500">Unit price</span>
-                        <span className="font-semibold text-slate-900">{formatCurrency(item.Standard_Price || 0)}</span>
+                        <span className="font-semibold text-slate-900">{formatFullCurrency(item.Standard_Price || 0)}</span>
                       </div>
                       <div className="flex flex-col gap-2 text-slate-700">
                         <Label className="text-xs text-slate-500">Expected completion</Label>
@@ -992,7 +991,7 @@ export default function ProfessionalDashboard() {
                   </div>
                   <div className="flex flex-col gap-1 text-right text-slate-700 lg:items-end">
                     <span className="text-xs text-slate-500">Unit price</span>
-                    <span className="font-semibold text-slate-900">{formatCurrency(item.Standard_Price || 0)}</span>
+                    <span className="font-semibold text-slate-900">{formatFullCurrency(item.Standard_Price || 0)}</span>
                     <span className="text-[12px] text-slate-500">Qty: {item.Total_Qty || 0}</span>
                   </div>
                   <div className="w-full">
@@ -1072,7 +1071,7 @@ export default function ProfessionalDashboard() {
                       <p className="text-sm text-slate-600 line-clamp-2">{item.Description_EN}</p>
                       <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
                         <span>Value {formatCurrency(item.Value || 0)}</span>
-                        <span>Unit {formatCurrency(item.Standard_Price || 0)}</span>
+                        <span>Unit {formatFullCurrency(item.Standard_Price || 0)}</span>
                         <span>Qty {item.Total_Qty || 0}</span>
                         <span>Kanban: {item.Kanban_Flag || '-'}</span>
                       </div>
