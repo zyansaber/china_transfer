@@ -6,6 +6,7 @@ import {
   BadgeCheck,
   CalendarIcon,
   ClipboardList,
+  Download,
   Factory,
   FilePieChart,
   Flag,
@@ -66,6 +67,18 @@ const parseDate = (value?: string) => {
   if (!value) return null;
   const parsed = parseISO(value);
   return isValid(parsed) ? startOfMonth(parsed) : null;
+};
+
+const escapeCsvValue = (value: string | number | null | undefined) => {
+  if (value === null || value === undefined) return '';
+  const normalized = String(value).replace(/\r?\n|\r/g, ' ');
+  if (normalized.includes('"')) {
+    return `"${normalized.replace(/"/g, '""')}"`;
+  }
+  if (/[",]/.test(normalized)) {
+    return `"${normalized}"`;
+  }
+  return normalized;
 };
 
 type TabKey =
@@ -538,6 +551,58 @@ export default function ProfessionalDashboard() {
   const reportText = `BoM Transfer Report\n\n- Parts completed: ${summary.completedParts}/${summary.totalParts}\n- Completion rate: ${Math.round(
     (summary.completedParts / Math.max(summary.totalParts, 1)) * 100
   )}%\n- Value completed: ${formatCurrency(summary.completedValue)}\n- Remaining (excluding Not to Transfer): ${currentBomItems.length} parts\n- Delayed plans: ${delayedCount}\nGenerated on: ${format(new Date(), 'PPpp')}`;
+
+  const exportRemainingToCsv = () => {
+    if (!remainingItems.length) {
+      return;
+    }
+
+    const headers = [
+      'Component Material',
+      'Description (EN)',
+      'Kanban Flag',
+      'Latest Component Date',
+      'Standard Price',
+      'Total Quantity',
+      'Value',
+      'Transfer Status',
+      'Status Updated At',
+      'Expected Completion',
+      'Not To Transfer Reason',
+      'Brand',
+      'Planned Start',
+    ];
+
+    const rows = remainingItems.map((item) => [
+      item.Component_Material,
+      item.Description_EN,
+      item.Kanban_Flag,
+      item.Latest_Component_Date,
+      item.Standard_Price,
+      item.Total_Qty,
+      item.Value,
+      item.Transfer_Status || 'Not Start',
+      item.Status_UpdatedAt || '',
+      item.Expected_Completion || '',
+      item.NotToTransferReason || '',
+      item.Brand || '',
+      item.Planned_Start || '',
+    ]);
+
+    const csv = [headers, ...rows]
+      .map((row) => row.map((value) => escapeCsvValue(value)).join(','))
+      .join('\n');
+
+    const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `remaining-in-au-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   const renderCompleted = () => (
     <div className="space-y-6">
@@ -1037,6 +1102,15 @@ export default function ProfessionalDashboard() {
             <CardDescription>Capture reason and brand for each Not to Transfer item</CardDescription>
           </div>
           <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+            <Button
+              onClick={exportRemainingToCsv}
+              variant="outline"
+              className="gap-2"
+              disabled={remainingItems.length === 0}
+            >
+              <Download className="h-4 w-4" />
+              导出 CSV
+            </Button>
             <SearchInput
               label="Search"
               value={remainingSearch}
