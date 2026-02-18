@@ -6,6 +6,7 @@ import {
   BadgeCheck,
   CalendarIcon,
   ClipboardList,
+  Download,
   Factory,
   FilePieChart,
   Flag,
@@ -39,6 +40,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 import { StatusButton } from '@/components/StatusButton';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { exportHoldDetailsToExcel } from '@/lib/exportToExcel';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', {
@@ -1037,6 +1039,15 @@ export default function ProfessionalDashboard() {
             <CardDescription>Capture reason and brand for each Not to Transfer item</CardDescription>
           </div>
           <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => exportHoldDetailsToExcel(filteredRemaining)}
+              disabled={filteredRemaining.length === 0}
+            >
+              <Download className="h-4 w-4" />
+              Export hold detail
+            </Button>
             <SearchInput
               label="Search"
               value={remainingSearch}
