@@ -11,7 +11,6 @@ import {
   Flag,
   Layers,
   Lightbulb,
-  Download,
   NotebookPen,
   Search,
   Sparkles,
@@ -100,17 +99,6 @@ const buildSearchSuggestions = <T extends { Component_Material: string; Descript
   const unique = Array.from(new Set(pool));
 
   return unique.filter((value) => value.toLowerCase().includes(q)).slice(0, limit);
-};
-
-const escapeCsvCell = (value: string | number | null | undefined) => {
-  if (value === null || value === undefined) return '';
-
-  const serialized = String(value);
-  if (/[",\n]/.test(serialized)) {
-    return `"${serialized.replace(/"/g, '""')}"`;
-  }
-
-  return serialized;
 };
 
 const sidebarNav: { key: TabKey; label: string; description: string; icon: typeof Activity }[] = [
@@ -278,52 +266,6 @@ export default function ProfessionalDashboard() {
     () => filterByQuery(sortedRemaining, remainingSearch),
     [sortedRemaining, remainingSearch]
   );
-
-  const exportRemainingToExcel = () => {
-    const headers = [
-      'Component Material',
-      'Description',
-      'Transfer Status',
-      'Reason',
-      'Brand',
-      'Kanban Flag',
-      'Latest Component Date',
-      'Unit Price (AUD)',
-      'Total Qty',
-      'Value (AUD)',
-      'Status Updated At',
-    ];
-
-    const rows = sortedRemaining.map((item) => [
-      item.Component_Material,
-      item.Description_EN || '',
-      item.Transfer_Status || 'Not to Transfer',
-      item.NotToTransferReason || '',
-      item.Brand || '',
-      item.Kanban_Flag || '',
-      item.Latest_Component_Date || '',
-      item.Standard_Price ?? 0,
-      item.Total_Qty ?? 0,
-      item.Value ?? 0,
-      item.Status_UpdatedAt || '',
-    ]);
-
-    const csvContent = [headers, ...rows]
-      .map((row) => row.map((cell) => escapeCsvCell(cell)).join(','))
-      .join('\n');
-
-    const blob = new Blob([`\uFEFF${csvContent}`], {
-      type: 'text/csv;charset=utf-8;',
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `remaining-in-au-${format(new Date(), 'yyyy-MM-dd')}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
   const completedSuggestions = useMemo(
     () => buildSearchSuggestions(sortedCompleted, completedSearch),
     [sortedCompleted, completedSearch]
@@ -1095,10 +1037,6 @@ export default function ProfessionalDashboard() {
             <CardDescription>Capture reason and brand for each Not to Transfer item</CardDescription>
           </div>
           <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
-            <Button type="button" variant="outline" onClick={exportRemainingToExcel}>
-              <Download className="mr-2 h-4 w-4" />
-              Export Excel
-            </Button>
             <SearchInput
               label="Search"
               value={remainingSearch}
