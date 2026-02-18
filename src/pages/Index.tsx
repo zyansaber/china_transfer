@@ -37,7 +37,6 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { exportRemainingHoldsToExcel } from '@/lib/exportToExcel';
 import { StatusButton } from '@/components/StatusButton';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 
@@ -1038,14 +1037,6 @@ export default function ProfessionalDashboard() {
             <CardDescription>Capture reason and brand for each Not to Transfer item</CardDescription>
           </div>
           <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={() => exportRemainingHoldsToExcel(sortedRemaining)}
-            >
-              <ClipboardList className="h-4 w-4" />
-              Export hold detail
-            </Button>
             <SearchInput
               label="Search"
               value={remainingSearch}
